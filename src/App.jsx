@@ -19,9 +19,10 @@ export default function App() {
 
       <Route path="/" element={<LostFoundLayout />}>
         <Route index element={<HomePage />} />
+        <Route path="lost-found" element={<HomePage />} />
         <Route path="lost-founds/:id" element={<DetailPage />} />
         <Route path="users" element={<UsersPage />} />
-        <Route path="user" element={<UsersPage />} />   {/* <-- BARIS BARU */}
+        <Route path="user" element={<UsersPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
