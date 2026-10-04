@@ -21,6 +21,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="lost-founds/:id" element={<DetailPage />} />
         <Route path="users" element={<UsersPage />} />
+        <Route path="user" element={<UsersPage />} />   {/* <-- BARIS BARU */}
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
