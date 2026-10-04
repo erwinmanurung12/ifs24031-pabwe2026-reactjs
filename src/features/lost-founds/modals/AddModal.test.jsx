@@ -1,58 +1,73 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import AddModal from "./AddModal";
+import { postLostFound } from "../api/lostFoundApi";
+import { renderWithProviders, stateWith } from "../../../test-utils";
 
 vi.mock("../api/lostFoundApi");
-vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
+vi.mock("../../../helpers/toolsHelper", async (original) => ({
+  ...(await original()),
+  showErrorDialog: vi.fn(),
+  showSuccessDialog: vi.fn().mockResolvedValue({}),
 }));
 
-import { postLostFound } from "../api/lostFoundApi";
-import { showErrorDialog } from "../../../helpers/toolsHelper";
-import AddModal from "./AddModal";
-import { renderWithProviders } from "../../../test-utils";
+const setup = (preloadedState) => {
+  const handlers = { onClose: vi.fn(), onSaved: vi.fn() };
+  renderWithProviders(<AddModal {...handlers} />, { preloadedState });
+  return handlers;
+};
+
+const fillForm = async (title = "Kunci motor", description = "Kunci Honda warna hitam") => {
+  await userEvent.type(screen.getByLabelText("Judul"), title);
+  await userEvent.type(screen.getByLabelText("Deskripsi"), description);
+};
+
+beforeEach(() => vi.clearAllMocks());
 
 describe("AddModal", () => {
-  beforeEach(() => vi.clearAllMocks());
+  it("menampilkan form dengan jenis 'Barang Hilang' terpilih bawaan", () => {
+    setup();
+    expect(screen.getByRole("dialog", { name: "Buat laporan baru" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Barang Hilang" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByLabelText(/Tandai selesai/)).not.toBeInTheDocument();
+  });
 
-  it("memvalidasi judul dan deskripsi", async () => {
-    renderWithProviders(<AddModal onClose={() => {}} />);
-    await userEvent.click(screen.getByRole("button", { name: "Simpan" }));
+  it("validasi: judul & deskripsi wajib", async () => {
+    const { onClose } = setup();
+    await userEvent.type(screen.getByLabelText("Deskripsi"), "pendek");
+    await userEvent.click(screen.getByRole("button", { name: "Kirim laporan" }));
     expect(screen.getByText("Judul wajib diisi")).toBeInTheDocument();
-    expect(screen.getByText("Deskripsi wajib diisi")).toBeInTheDocument();
+    expect(screen.getByText("Deskripsi minimal 10 karakter")).toBeInTheDocument();
     expect(postLostFound).not.toHaveBeenCalled();
-  });
-
-  it("menyimpan laporan baru dan menutup modal", async () => {
-    postLostFound.mockResolvedValue({ status: "success", data: { lost_found_id: 1 } });
-    const onClose = vi.fn();
-    const { store } = renderWithProviders(<AddModal onClose={onClose} />);
-    await userEvent.click(screen.getByLabelText("Barang ditemukan"));
-    await userEvent.type(screen.getByLabelText("Judul"), " Kunci ");
-    await userEvent.type(screen.getByLabelText("Deskripsi"), " Gantungan biru ");
-    await userEvent.click(screen.getByRole("button", { name: "Simpan" }));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(postLostFound).toHaveBeenCalledWith({ title: "Kunci", description: "Gantungan biru", status: "found" });
-    expect(store.getState().isLostFoundAdded).toBe(true);
-  });
-
-  it("gagal menyimpan: modal tetap terbuka", async () => {
-    postLostFound.mockResolvedValue({ status: "fail", message: "Data tidak valid" });
-    const onClose = vi.fn();
-    renderWithProviders(<AddModal onClose={onClose} />);
-    await userEvent.type(screen.getByLabelText("Judul"), "A");
-    await userEvent.type(screen.getByLabelText("Deskripsi"), "B");
-    await userEvent.click(screen.getByRole("button", { name: "Simpan" }));
-    await waitFor(() => expect(showErrorDialog).toHaveBeenCalledWith("Data tidak valid"));
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("tombol Batal menutup modal dan tombol dinonaktifkan saat menyimpan", async () => {
-    const onClose = vi.fn();
-    renderWithProviders(<AddModal onClose={onClose} />, { preloadedState: { isLostFoundAdd: true } });
-    expect(screen.getByRole("button", { name: "Menyimpan..." })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: "Batal" }));
+  it("mengirim laporan 'ditemukan' lalu menutup modal", async () => {
+    postLostFound.mockResolvedValue({});
+    const { onClose, onSaved } = setup();
+    await userEvent.click(screen.getByRole("button", { name: "Barang Ditemukan" }));
+    await fillForm();
+    await userEvent.click(screen.getByRole("button", { name: "Kirim laporan" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(postLostFound).toHaveBeenCalledWith({
+      title: "Kunci motor", description: "Kunci Honda warna hitam", status: "found",
+    });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("tetap terbuka bila API gagal", async () => {
+    postLostFound.mockRejectedValue(new Error("gagal"));
+    const { onClose, onSaved } = setup();
+    await fillForm();
+    await userEvent.click(screen.getByRole("button", { name: "Kirim laporan" }));
+    await waitFor(() => expect(postLostFound).toHaveBeenCalled());
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("tombol kirim nonaktif saat proses berjalan", () => {
+    setup(stateWith({ lostFounds: { isLostFoundAdd: true } }));
+    expect(screen.getByRole("button", { name: "Kirim laporan" })).toBeDisabled();
   });
 });

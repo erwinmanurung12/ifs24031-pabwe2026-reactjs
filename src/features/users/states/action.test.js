@@ -1,77 +1,74 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  asyncChangeProfile,
+  asyncChangeProfilePassword,
+  asyncChangeProfilePhoto,
+  asyncGetProfile,
+  asyncGetUsers,
+} from "./action";
+import { fetchMe, fetchUsers, postMyPhoto, putMe, putMyPassword } from "../api/userApi";
+import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
+import { makeStore } from "../../../test-utils";
 
 vi.mock("../api/userApi");
-vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
-}));
+vi.mock("../../../helpers/toolsHelper", () => ({ showErrorDialog: vi.fn(), showSuccessDialog: vi.fn() }));
 
-import * as api from "../api/userApi";
-import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
-import * as actions from "./action";
+beforeEach(() => vi.clearAllMocks());
 
-const ok = (data) => ({ status: "success", data });
-
-describe("users action", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("action creators memakai type yang benar", () => {
-    expect(actions.setUsersActionCreator([]).type).toBe(actions.ActionType.SET_USERS);
-    expect(actions.setUserActionCreator({}).type).toBe(actions.ActionType.SET_USER);
-    expect(actions.setProfileActionCreator({}).type).toBe(actions.ActionType.SET_PROFILE);
-    expect(actions.setIsProfileActionCreator(true).type).toBe(actions.ActionType.SET_IS_PROFILE);
-    expect(actions.setIsChangeProfileActionCreator(true).type).toBe(actions.ActionType.SET_IS_CHANGE_PROFILE);
-    expect(actions.setIsChangeProfilePhotoActionCreator(true).type).toBe(actions.ActionType.SET_IS_CHANGE_PROFILE_PHOTO);
-    expect(actions.setIsChangeProfilePasswordActionCreator(true).type).toBe(actions.ActionType.SET_IS_CHANGE_PROFILE_PASSWORD);
+describe("asyncGetUsers", () => {
+  it("mengisi daftar pengguna", async () => {
+    fetchUsers.mockResolvedValue({ data: { users: [{ id: 1 }] } });
+    const store = makeStore();
+    await store.dispatch(asyncGetUsers());
+    expect(store.getState().users.users).toEqual([{ id: 1 }]);
   });
 
-  it("asyncSetUsers berhasil dan gagal", async () => {
-    api.fetchUsers.mockResolvedValueOnce(ok({ users: [{ id: 1 }] }));
-    const dispatch = vi.fn();
-    expect(await actions.asyncSetUsers()(dispatch)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith(actions.setUsersActionCreator([{ id: 1 }]));
+  it("menampilkan dialog error bila gagal", async () => {
+    fetchUsers.mockRejectedValue(new Error("down"));
+    await makeStore().dispatch(asyncGetUsers());
+    expect(showErrorDialog).toHaveBeenCalledWith("down");
+  });
+});
 
-    api.fetchUsers.mockResolvedValueOnce({ status: "fail", message: "Gagal" });
-    expect(await actions.asyncSetUsers()(dispatch)).toBe(false);
-    expect(showErrorDialog).toHaveBeenCalledWith("Gagal");
+describe("asyncGetProfile", () => {
+  it("menyimpan profil dan mengembalikan true", async () => {
+    fetchMe.mockResolvedValue({ data: { user: { id: 7, name: "Ani" } } });
+    const store = makeStore();
+    expect(await store.dispatch(asyncGetProfile())).toBe(true);
+    expect(store.getState().users.profile.name).toBe("Ani");
+    expect(store.getState().users.isProfile).toBe(false);
   });
 
-  it("asyncSetProfile berhasil dan gagal", async () => {
-    api.fetchProfile.mockResolvedValueOnce(ok({ user: { id: 1 } }));
-    const dispatch = vi.fn();
-    expect(await actions.asyncSetProfile()(dispatch)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith(actions.setProfileActionCreator({ id: 1 }));
-    expect(dispatch).toHaveBeenCalledWith(actions.setIsProfileActionCreator(true));
+  it("mengembalikan false tanpa dialog saat token tidak valid", async () => {
+    fetchMe.mockRejectedValue(new Error("401"));
+    expect(await makeStore().dispatch(asyncGetProfile())).toBe(false);
+    expect(showErrorDialog).not.toHaveBeenCalled();
+  });
+});
 
-    api.fetchProfile.mockResolvedValueOnce({ status: "fail" });
-    expect(await actions.asyncSetProfile()(dispatch)).toBe(false);
-    expect(dispatch).toHaveBeenCalledWith(actions.setProfileActionCreator(null));
+describe("mutasi profil", () => {
+  beforeEach(() => fetchMe.mockResolvedValue({ data: { user: { id: 1, name: "Baru" } } }));
+
+  it.each([
+    ["asyncChangeProfile", () => asyncChangeProfile({ name: "x" }), putMe],
+    ["asyncChangeProfilePhoto", () => asyncChangeProfilePhoto(new File(["a"], "a.png")), postMyPhoto],
+    ["asyncChangeProfilePassword", () => asyncChangeProfilePassword({ password: "a" }), putMyPassword],
+  ])("%s sukses menyegarkan profil", async (_name, build, api) => {
+    api.mockResolvedValue({});
+    const store = makeStore();
+    expect(await store.dispatch(build())).toBe(true);
+    expect(api).toHaveBeenCalled();
+    expect(store.getState().users.profile.name).toBe("Baru");
+    expect(showSuccessDialog).toHaveBeenCalled();
   });
 
-  it("mutasi profil memuat ulang profil", async () => {
-    api.putProfile.mockResolvedValue({ status: "success" });
-    api.postProfilePhoto.mockResolvedValue({ status: "success" });
-    const dispatch = vi.fn(async () => true);
-    expect(await actions.asyncChangeProfile({ name: "a" })(dispatch)).toBe(true);
-    expect(await actions.asyncChangeProfilePhoto(new File([], "a.png"))(dispatch)).toBe(true);
-    expect(showSuccessDialog).toHaveBeenCalledWith("Profil berhasil diperbarui");
-    expect(showSuccessDialog).toHaveBeenCalledWith("Foto profil berhasil diperbarui");
-    expect(dispatch).toHaveBeenCalledWith(actions.setIsChangeProfileActionCreator(true));
-    expect(dispatch).toHaveBeenCalledWith(actions.setIsChangeProfileActionCreator(false));
-  });
-
-  it("ubah kata sandi tidak memuat ulang profil", async () => {
-    api.putProfilePassword.mockResolvedValue({ status: "success" });
-    const dispatch = vi.fn();
-    expect(await actions.asyncChangeProfilePassword({ password: "a", newPassword: "b" })(dispatch)).toBe(true);
-    expect(dispatch).toHaveBeenCalledTimes(2);
-  });
-
-  it("mutasi gagal menampilkan error", async () => {
-    api.putProfile.mockResolvedValue({ status: "fail", message: "Tidak valid", data: { field: ["Email salah"] } });
-    const dispatch = vi.fn();
-    expect(await actions.asyncChangeProfile({})(dispatch)).toBe(false);
-    expect(showErrorDialog).toHaveBeenCalledWith("Tidak valid: Email salah");
-    expect(dispatch).not.toHaveBeenCalled();
+  it.each([
+    ["asyncChangeProfile", () => asyncChangeProfile({}), putMe],
+    ["asyncChangeProfilePhoto", () => asyncChangeProfilePhoto(null), postMyPhoto],
+    ["asyncChangeProfilePassword", () => asyncChangeProfilePassword({}), putMyPassword],
+  ])("%s gagal menampilkan error", async (_name, build, api) => {
+    api.mockRejectedValue(new Error("ditolak"));
+    expect(await makeStore().dispatch(build())).toBe(false);
+    expect(showErrorDialog).toHaveBeenCalledWith("ditolak");
   });
 });

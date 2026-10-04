@@ -1,27 +1,49 @@
-import { ActionType } from "./action";
+import { createSlice } from "@reduxjs/toolkit";
+import { isAuthLogout } from "../../auth/states/reducer";
 
-export function lostFoundsReducer(state = [], action = {}) {
-  return action.type === ActionType.SET_LOST_FOUNDS ? action.payload.lostFounds : state;
-}
+const initialState = {
+  lostFounds: [],
+  lostFound: null,
+  isLostFound: false,
+  isLostFoundAdd: false,
+  isLostFoundAdded: false,
+  isLostFoundChange: false,
+  isLostFoundChanged: false,
+  isLostFoundChangeCover: false,
+  isLostFoundChangedCover: false,
+  isLostFoundDelete: false,
+  isLostFoundDeleted: false,
+  lostFoundStats: null,
+};
 
-export function lostFoundReducer(state = null, action = {}) {
-  return action.type === ActionType.SET_LOST_FOUND ? action.payload.lostFound : state;
-}
+const assign = (key) => (state, { payload }) => {
+  state[key] = payload;
+};
 
-export function lostFoundStatsReducer(state = null, action = {}) {
-  return action.type === ActionType.SET_LOST_FOUND_STATS ? action.payload.stats : state;
-}
+// Satu reducer per kunci state, dibangkitkan dari daftar kunci agar tidak berulang.
+const reducers = Object.fromEntries(Object.keys(initialState).map((key) => [key, assign(key)]));
 
-function flagReducer(type) {
-  return (state = false, action = {}) => (action.type === type ? action.payload.status : state);
-}
+const lostFoundSlice = createSlice({
+  name: "lostFounds",
+  initialState,
+  reducers,
+  extraReducers: (builder) => {
+    builder.addCase(isAuthLogout, () => initialState);
+  },
+});
 
-export const isLostFoundReducer = flagReducer(ActionType.SET_IS_LOST_FOUND);
-export const isLostFoundAddReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_ADD);
-export const isLostFoundAddedReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_ADDED);
-export const isLostFoundChangeReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_CHANGE);
-export const isLostFoundChangedReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_CHANGED);
-export const isLostFoundChangeCoverReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_CHANGE_COVER);
-export const isLostFoundChangedCoverReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_CHANGED_COVER);
-export const isLostFoundDeleteReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_DELETE);
-export const isLostFoundDeletedReducer = flagReducer(ActionType.SET_IS_LOST_FOUND_DELETED);
+export const {
+  lostFounds,
+  lostFound,
+  isLostFound,
+  isLostFoundAdd,
+  isLostFoundAdded,
+  isLostFoundChange,
+  isLostFoundChanged,
+  isLostFoundChangeCover,
+  isLostFoundChangedCover,
+  isLostFoundDelete,
+  isLostFoundDeleted,
+  lostFoundStats,
+} = lostFoundSlice.actions;
+export default lostFoundSlice.reducer;

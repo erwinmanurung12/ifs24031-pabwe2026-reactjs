@@ -1,75 +1,57 @@
-import {
-  fetchUsers,
-  fetchProfile,
-  putProfile,
-  postProfilePhoto,
-  putProfilePassword,
-} from "../api/userApi";
-import { getResponseMessage } from "../../../helpers/apiHelper";
+import { fetchMe, fetchUsers, postMyPhoto, putMe, putMyPassword } from "../api/userApi";
 import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
+import {
+  isChangeProfile,
+  isChangeProfilePassword,
+  isChangeProfilePhoto,
+  isProfile,
+  profile,
+  users,
+} from "./reducer";
 
-export const ActionType = {
-  SET_USERS: "users/SET_USERS",
-  SET_USER: "users/SET_USER",
-  SET_PROFILE: "users/SET_PROFILE",
-  SET_IS_PROFILE: "users/SET_IS_PROFILE",
-  SET_IS_CHANGE_PROFILE: "users/SET_IS_CHANGE_PROFILE",
-  SET_IS_CHANGE_PROFILE_PHOTO: "users/SET_IS_CHANGE_PROFILE_PHOTO",
-  SET_IS_CHANGE_PROFILE_PASSWORD: "users/SET_IS_CHANGE_PROFILE_PASSWORD",
+export const asyncGetUsers = () => async (dispatch) => {
+  try {
+    const { data } = await fetchUsers();
+    dispatch(users(data.users));
+  } catch (error) {
+    showErrorDialog(error.message);
+  }
 };
 
-export const setUsersActionCreator = (users) => ({ type: ActionType.SET_USERS, payload: { users } });
-export const setUserActionCreator = (user) => ({ type: ActionType.SET_USER, payload: { user } });
-export const setProfileActionCreator = (profile) => ({ type: ActionType.SET_PROFILE, payload: { profile } });
-export const setIsProfileActionCreator = (status) => ({ type: ActionType.SET_IS_PROFILE, payload: { status } });
-export const setIsChangeProfileActionCreator = (status) => ({ type: ActionType.SET_IS_CHANGE_PROFILE, payload: { status } });
-export const setIsChangeProfilePhotoActionCreator = (status) => ({ type: ActionType.SET_IS_CHANGE_PROFILE_PHOTO, payload: { status } });
-export const setIsChangeProfilePasswordActionCreator = (status) => ({ type: ActionType.SET_IS_CHANGE_PROFILE_PASSWORD, payload: { status } });
-
-export function asyncSetUsers() {
-  return async (dispatch) => {
-    const response = await fetchUsers();
-    if (response.status !== "success") {
-      await showErrorDialog(getResponseMessage(response));
-      return false;
-    }
-    dispatch(setUsersActionCreator(response.data.users));
+export const asyncGetProfile = () => async (dispatch) => {
+  dispatch(isProfile(true));
+  try {
+    const { data } = await fetchMe();
+    dispatch(profile(data.user));
     return true;
-  };
-}
+  } catch {
+    return false;
+  } finally {
+    dispatch(isProfile(false));
+  }
+};
 
-// Mengembalikan false jika token tidak valid (layout yang memutuskan logout).
-export function asyncSetProfile() {
-  return async (dispatch) => {
-    const response = await fetchProfile();
-    const success = response.status === "success";
-    dispatch(setProfileActionCreator(success ? response.data.user : null));
-    dispatch(setIsProfileActionCreator(true));
-    return success;
-  };
-}
-
-function createMutation(call, flagCreator, successMessage, reloadProfile = false) {
-  return (payload) => async (dispatch) => {
-    const response = await call(payload);
-    if (response.status !== "success") {
-      await showErrorDialog(getResponseMessage(response));
-      return false;
-    }
-    dispatch(flagCreator(true));
-    if (reloadProfile) await dispatch(asyncSetProfile());
-    await showSuccessDialog(successMessage);
-    dispatch(flagCreator(false));
+// Pola umum mutasi profil: nyalakan flag, panggil API, segarkan profil, tampilkan dialog.
+const mutateProfile = (flag, call, successMessage) => async (dispatch) => {
+  dispatch(flag(true));
+  try {
+    await call();
+    await dispatch(asyncGetProfile());
+    showSuccessDialog(successMessage);
     return true;
-  };
-}
+  } catch (error) {
+    showErrorDialog(error.message);
+    return false;
+  } finally {
+    dispatch(flag(false));
+  }
+};
 
-export const asyncChangeProfile = createMutation(
-  putProfile, setIsChangeProfileActionCreator, "Profil berhasil diperbarui", true
-);
-export const asyncChangeProfilePhoto = createMutation(
-  postProfilePhoto, setIsChangeProfilePhotoActionCreator, "Foto profil berhasil diperbarui", true
-);
-export const asyncChangeProfilePassword = createMutation(
-  putProfilePassword, setIsChangeProfilePasswordActionCreator, "Kata sandi berhasil diperbarui"
-);
+export const asyncChangeProfile = (payload) =>
+  mutateProfile(isChangeProfile, () => putMe(payload), "Profil berhasil diperbarui.");
+
+export const asyncChangeProfilePhoto = (file) =>
+  mutateProfile(isChangeProfilePhoto, () => postMyPhoto(file), "Foto profil berhasil diganti.");
+
+export const asyncChangeProfilePassword = (payload) =>
+  mutateProfile(isChangeProfilePassword, () => putMyPassword(payload), "Kata sandi berhasil diubah.");

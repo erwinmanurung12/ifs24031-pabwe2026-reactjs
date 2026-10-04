@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Lost &amp; Founds"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#g)"/><path d="M32 11c-8.3 0-15 6.500-15 14.600 0 10.300 12.200 21.200 14.100 22.800a1.400 1.400 0 0 0 1.800 0C34.800 46.800 47 35.900 47 25.600 47 17.500 40.300 11 32 11z" fill="#fff"/><circle cx="32" cy="25.500" r="8" fill="#dbeafe"/><path d="M28 25.600l3 3 5.500-6" fill="none" stroke="#1d4ed8" stroke-width="2.800" stroke-linecap="round" stroke-linejoin="round"/><ellipse cx="32" cy="53" rx="11" ry="2.600" fill="#fff" opacity=".55"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="18" fill="#1e1b4b"/>
+  <circle cx="28" cy="28" r="13" fill="none" stroke="#fbbf24" stroke-width="5"/>
+  <path d="M38 38l11 11" stroke="#fbbf24" stroke-width="5" stroke-linecap="round"/>
+  <path d="M22 28l4 4 8-9" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

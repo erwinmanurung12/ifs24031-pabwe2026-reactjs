@@ -1,123 +1,116 @@
 import {
-  fetchLostFounds,
   fetchLostFound,
+  fetchLostFounds,
+  fetchStatsDaily,
+  fetchStatsMonthly,
   postLostFound,
-  putLostFound,
   postLostFoundCover,
-  deleteLostFound,
-  fetchLostFoundStatsDaily,
+  putLostFound,
+  removeLostFound,
 } from "../api/lostFoundApi";
-import { getResponseMessage } from "../../../helpers/apiHelper";
-import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
+import {
+  showConfirmDialog,
+  showErrorDialog,
+  showSuccessDialog,
+} from "../../../helpers/toolsHelper";
+import {
+  isLostFound,
+  isLostFoundAdd,
+  isLostFoundAdded,
+  isLostFoundChange,
+  isLostFoundChangeCover,
+  isLostFoundChanged,
+  isLostFoundChangedCover,
+  isLostFoundDelete,
+  isLostFoundDeleted,
+  lostFound,
+  lostFoundStats,
+  lostFounds,
+} from "./reducer";
 
-export const ActionType = {
-  SET_LOST_FOUNDS: "lostFounds/SET_LOST_FOUNDS",
-  SET_LOST_FOUND: "lostFounds/SET_LOST_FOUND",
-  SET_IS_LOST_FOUND: "lostFounds/SET_IS_LOST_FOUND",
-  SET_IS_LOST_FOUND_ADD: "lostFounds/SET_IS_LOST_FOUND_ADD",
-  SET_IS_LOST_FOUND_ADDED: "lostFounds/SET_IS_LOST_FOUND_ADDED",
-  SET_IS_LOST_FOUND_CHANGE: "lostFounds/SET_IS_LOST_FOUND_CHANGE",
-  SET_IS_LOST_FOUND_CHANGED: "lostFounds/SET_IS_LOST_FOUND_CHANGED",
-  SET_IS_LOST_FOUND_CHANGE_COVER: "lostFounds/SET_IS_LOST_FOUND_CHANGE_COVER",
-  SET_IS_LOST_FOUND_CHANGED_COVER: "lostFounds/SET_IS_LOST_FOUND_CHANGED_COVER",
-  SET_IS_LOST_FOUND_DELETE: "lostFounds/SET_IS_LOST_FOUND_DELETE",
-  SET_IS_LOST_FOUND_DELETED: "lostFounds/SET_IS_LOST_FOUND_DELETED",
-  SET_LOST_FOUND_STATS: "lostFounds/SET_LOST_FOUND_STATS",
+export const asyncGetLostFounds = (params) => async (dispatch) => {
+  dispatch(isLostFound(true));
+  try {
+    const { data } = await fetchLostFounds(params);
+    dispatch(lostFounds(data.lost_founds));
+  } catch (error) {
+    showErrorDialog(error.message);
+  } finally {
+    dispatch(isLostFound(false));
+  }
 };
 
-const creator = (type, key) => (value) => ({ type, payload: { [key]: value } });
-
-export const setLostFoundsActionCreator = creator(ActionType.SET_LOST_FOUNDS, "lostFounds");
-export const setLostFoundActionCreator = creator(ActionType.SET_LOST_FOUND, "lostFound");
-export const setIsLostFoundActionCreator = creator(ActionType.SET_IS_LOST_FOUND, "status");
-export const setIsLostFoundAddActionCreator = creator(ActionType.SET_IS_LOST_FOUND_ADD, "status");
-export const setIsLostFoundAddedActionCreator = creator(ActionType.SET_IS_LOST_FOUND_ADDED, "status");
-export const setIsLostFoundChangeActionCreator = creator(ActionType.SET_IS_LOST_FOUND_CHANGE, "status");
-export const setIsLostFoundChangedActionCreator = creator(ActionType.SET_IS_LOST_FOUND_CHANGED, "status");
-export const setIsLostFoundChangeCoverActionCreator = creator(ActionType.SET_IS_LOST_FOUND_CHANGE_COVER, "status");
-export const setIsLostFoundChangedCoverActionCreator = creator(ActionType.SET_IS_LOST_FOUND_CHANGED_COVER, "status");
-export const setIsLostFoundDeleteActionCreator = creator(ActionType.SET_IS_LOST_FOUND_DELETE, "status");
-export const setIsLostFoundDeletedActionCreator = creator(ActionType.SET_IS_LOST_FOUND_DELETED, "status");
-export const setLostFoundStatsActionCreator = creator(ActionType.SET_LOST_FOUND_STATS, "stats");
-
-export function asyncSetLostFounds(filters) {
-  return async (dispatch) => {
-    dispatch(setIsLostFoundActionCreator(true));
-    const response = await fetchLostFounds(filters);
-    dispatch(setIsLostFoundActionCreator(false));
-    if (response.status !== "success") {
-      await showErrorDialog(getResponseMessage(response));
-      return false;
-    }
-    dispatch(setLostFoundsActionCreator(response.data.lost_founds));
+export const asyncGetLostFound = (id) => async (dispatch) => {
+  dispatch(lostFound(null));
+  try {
+    const { data } = await fetchLostFound(id);
+    dispatch(lostFound(data.lost_found));
     return true;
-  };
-}
+  } catch (error) {
+    showErrorDialog(error.message);
+    return false;
+  }
+};
 
-export function asyncSetLostFound(id) {
-  return async (dispatch) => {
-    dispatch(setIsLostFoundActionCreator(true));
-    const response = await fetchLostFound(id);
-    dispatch(setIsLostFoundActionCreator(false));
-    if (response.status !== "success") {
-      dispatch(setLostFoundActionCreator(null));
-      await showErrorDialog(getResponseMessage(response));
-      return false;
-    }
-    dispatch(setLostFoundActionCreator(response.data.lost_found));
-    return true;
-  };
-}
+export const asyncGetLostFoundStats = () => async (dispatch) => {
+  try {
+    const [daily, monthly] = await Promise.all([fetchStatsDaily(), fetchStatsMonthly()]);
+    dispatch(lostFoundStats({ daily: daily.data, monthly: monthly.data }));
+  } catch (error) {
+    showErrorDialog(error.message);
+  }
+};
 
-// Statistik bersifat pelengkap: kegagalan tidak menampilkan dialog.
-export function asyncSetLostFoundStats() {
-  return async (dispatch) => {
-    const response = await fetchLostFoundStatsDaily();
-    if (response.status !== "success") return false;
-    dispatch(setLostFoundStatsActionCreator(response.data));
-    return true;
-  };
-}
-
-function createMutation({ call, progress, done, successMessage }) {
-  return (payload) => async (dispatch) => {
-    dispatch(progress(true));
-    const response = await call(payload);
-    dispatch(progress(false));
-    if (response.status !== "success") {
-      await showErrorDialog(getResponseMessage(response));
-      return false;
-    }
+// Pola umum mutasi: reset flag "selesai", nyalakan flag "proses", panggil API, lalu beri umpan balik.
+const runMutation = ({ busy, done, call, message }) => async (dispatch) => {
+  dispatch(done(false));
+  dispatch(busy(true));
+  try {
+    await call();
     dispatch(done(true));
-    await showSuccessDialog(successMessage);
+    await showSuccessDialog(message);
     return true;
-  };
-}
+  } catch (error) {
+    showErrorDialog(error.message);
+    return false;
+  } finally {
+    dispatch(busy(false));
+  }
+};
 
-export const asyncAddLostFound = createMutation({
-  call: postLostFound,
-  progress: setIsLostFoundAddActionCreator,
-  done: setIsLostFoundAddedActionCreator,
-  successMessage: "Laporan berhasil ditambahkan",
-});
+export const asyncAddLostFound = (payload) =>
+  runMutation({
+    busy: isLostFoundAdd,
+    done: isLostFoundAdded,
+    call: () => postLostFound(payload),
+    message: "Laporan baru berhasil dikirim.",
+  });
 
-export const asyncChangeLostFound = createMutation({
-  call: putLostFound,
-  progress: setIsLostFoundChangeActionCreator,
-  done: setIsLostFoundChangedActionCreator,
-  successMessage: "Laporan berhasil diperbarui",
-});
+export const asyncChangeLostFound = (id, payload) =>
+  runMutation({
+    busy: isLostFoundChange,
+    done: isLostFoundChanged,
+    call: () => putLostFound(id, payload),
+    message: "Laporan berhasil diperbarui.",
+  });
 
-export const asyncChangeLostFoundCover = createMutation({
-  call: postLostFoundCover,
-  progress: setIsLostFoundChangeCoverActionCreator,
-  done: setIsLostFoundChangedCoverActionCreator,
-  successMessage: "Cover berhasil diperbarui",
-});
+export const asyncChangeLostFoundCover = (id, file) =>
+  runMutation({
+    busy: isLostFoundChangeCover,
+    done: isLostFoundChangedCover,
+    call: () => postLostFoundCover(id, file),
+    message: "Foto cover berhasil diganti.",
+  });
 
-export const asyncDeleteLostFound = createMutation({
-  call: deleteLostFound,
-  progress: setIsLostFoundDeleteActionCreator,
-  done: setIsLostFoundDeletedActionCreator,
-  successMessage: "Laporan berhasil dihapus",
-});
+export const asyncDeleteLostFound = (id) => async (dispatch) => {
+  const agreed = await showConfirmDialog("Laporan ini akan dihapus permanen.");
+  if (!agreed) return false;
+  return dispatch(
+    runMutation({
+      busy: isLostFoundDelete,
+      done: isLostFoundDeleted,
+      call: () => removeLostFound(id),
+      message: "Laporan berhasil dihapus.",
+    }),
+  );
+};

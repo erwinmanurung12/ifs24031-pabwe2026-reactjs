@@ -1,34 +1,31 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import { fetchMe, fetchUsers, postMyPhoto, putMe, putMyPassword } from "./userApi";
+import { callApi } from "../../../helpers/apiHelper";
 
-vi.mock("../../../helpers/apiHelper", () => ({ fetchApi: vi.fn(async () => ({ status: "success" })) }));
+vi.mock("../../../helpers/apiHelper", () => ({ callApi: vi.fn().mockResolvedValue({}) }));
+beforeEach(() => vi.clearAllMocks());
 
-import { fetchApi } from "../../../helpers/apiHelper";
-import { fetchUsers, fetchProfile, putProfile, postProfilePhoto, putProfilePassword } from "./userApi";
+it("GET /users dan /users/me", async () => {
+  await fetchUsers();
+  await fetchMe();
+  expect(callApi).toHaveBeenNthCalledWith(1, "/users");
+  expect(callApi).toHaveBeenNthCalledWith(2, "/users/me");
+});
 
-describe("userApi", () => {
-  it("memanggil endpoint users", async () => {
-    await fetchUsers();
-    expect(fetchApi).toHaveBeenCalledWith("/users");
-    await fetchProfile();
-    expect(fetchApi).toHaveBeenCalledWith("/users/me");
+it("PUT /users/me dan /users/me/password", async () => {
+  await putMe({ name: "a" });
+  await putMyPassword({ password: "x", new_password: "y" });
+  expect(callApi).toHaveBeenNthCalledWith(1, "/users/me", { method: "PUT", body: { name: "a" } });
+  expect(callApi).toHaveBeenNthCalledWith(2, "/users/me/password", {
+    method: "PUT",
+    body: { password: "x", new_password: "y" },
   });
+});
 
-  it("memperbarui profil", async () => {
-    await putProfile({ name: "A", email: "a@b.c" });
-    expect(fetchApi).toHaveBeenCalledWith("/users/me", { method: "PUT", body: { name: "A", email: "a@b.c" } });
-  });
-
-  it("mengunggah foto sebagai FormData", async () => {
-    const file = new File(["x"], "a.png", { type: "image/png" });
-    await postProfilePhoto(file);
-    const [path, options] = fetchApi.mock.calls.at(-1);
-    expect(path).toBe("/users/me/photo");
-    expect(options.method).toBe("POST");
-    expect(options.formData.get("photo")).toBe(file);
-  });
-
-  it("mengganti kata sandi dengan snake_case", async () => {
-    await putProfilePassword({ password: "old", newPassword: "new" });
-    expect(fetchApi).toHaveBeenCalledWith("/users/me/password", { method: "PUT", body: { password: "old", new_password: "new" } });
-  });
+it("POST /users/me/photo mengirim FormData berisi field photo", async () => {
+  const file = new File(["x"], "a.png", { type: "image/png" });
+  await postMyPhoto(file);
+  const [path, options] = callApi.mock.calls[0];
+  expect(path).toBe("/users/me/photo");
+  expect(options.form.get("photo")).toBe(file);
 });

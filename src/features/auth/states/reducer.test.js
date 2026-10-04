@@ -1,31 +1,21 @@
-import { describe, it, expect } from "vitest";
-import { isAuthLoginReducer, isAuthRegisterReducer, isAuthLogoutReducer } from "./reducer";
-import {
-  setIsAuthLoginActionCreator,
-  setIsAuthRegisterActionCreator,
-  setIsAuthLogoutActionCreator,
-} from "./action";
+import { expect, it } from "vitest";
+import reducer, { isAuthLogin, isAuthLogout, isAuthRegister } from "./reducer";
+import { putAccessToken } from "../../../helpers/apiHelper";
 
-describe("auth reducers", () => {
-  it("isAuthLogin: default dari token dan update", () => {
-    expect(isAuthLoginReducer(undefined)).toBe(false);
-    localStorage.setItem("accessToken", "t");
-    expect(isAuthLoginReducer(undefined, {})).toBe(true);
-    expect(isAuthLoginReducer(true, setIsAuthLoginActionCreator(false))).toBe(false);
-    expect(isAuthLoginReducer(true, { type: "x" })).toBe(true);
-  });
+it("state awal membaca token dari localStorage", () => {
+  putAccessToken("tersimpan");
+  expect(reducer(undefined, { type: "@@init" })).toEqual({ token: "tersimpan", registered: false });
+});
 
-  it("isAuthRegister", () => {
-    expect(isAuthRegisterReducer(undefined)).toBe(false);
-    expect(isAuthRegisterReducer(false, setIsAuthRegisterActionCreator(true))).toBe(true);
-    expect(isAuthRegisterReducer(true, { type: "x" })).toBe(true);
-  });
+it("isAuthLogin menyimpan token", () => {
+  const state = reducer({ token: null, registered: true }, isAuthLogin("t1"));
+  expect(state).toEqual({ token: "t1", registered: false });
+});
 
-  it("isAuthLogout: set, reset saat login, dan abaikan lainnya", () => {
-    expect(isAuthLogoutReducer(undefined)).toBe(false);
-    expect(isAuthLogoutReducer(false, setIsAuthLogoutActionCreator(true))).toBe(true);
-    expect(isAuthLogoutReducer(true, setIsAuthLoginActionCreator(true))).toBe(false);
-    expect(isAuthLogoutReducer(true, setIsAuthLoginActionCreator(false))).toBe(true);
-    expect(isAuthLogoutReducer(true, { type: "x" })).toBe(true);
-  });
+it("isAuthRegister menandai pendaftaran berhasil", () => {
+  expect(reducer({ token: null, registered: false }, isAuthRegister()).registered).toBe(true);
+});
+
+it("isAuthLogout mengosongkan sesi", () => {
+  expect(reducer({ token: "x", registered: true }, isAuthLogout())).toEqual({ token: null, registered: false });
 });

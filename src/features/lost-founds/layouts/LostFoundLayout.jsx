@@ -1,44 +1,51 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { IconLoader2 } from "@tabler/icons-react";
 import NavbarComponent from "../components/NavbarComponent";
 import SidebarComponent from "../components/SidebarComponent";
-import Spinner from "../../../components/Spinner";
-import { asyncSetProfile } from "../../users/states/action";
-import { asyncSetIsAuthLogout } from "../../auth/states/action";
+import { asyncLogout } from "../../auth/states/action";
+import { asyncGetProfile } from "../../users/states/action";
 
+// Route guard: tanpa token -> login; token tidak valid -> sesi dibersihkan.
 export default function LostFoundLayout() {
   const dispatch = useDispatch();
-  const isAuthLogin = useSelector((state) => state.isAuthLogin);
-  const isProfile = useSelector((state) => state.isProfile);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const token = useSelector((state) => state.auth.token);
+  const profile = useSelector((state) => state.users.profile);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Route guarding: verifikasi token dengan memuat profil pengguna.
   useEffect(() => {
-    if (!isAuthLogin) return;
-    dispatch(asyncSetProfile()).then((success) => {
-      if (!success) dispatch(asyncSetIsAuthLogout());
+    if (!token) return;
+    dispatch(asyncGetProfile()).then((valid) => {
+      if (!valid) dispatch(asyncLogout());
     });
-  }, [dispatch, isAuthLogin]);
+  }, [token, dispatch]);
 
-  if (!isAuthLogin) return <Navigate to="/auth/login" replace />;
-  if (!isProfile) return <Spinner label="Memuat sesi..." />;
+  const closeDrawer = () => setDrawerOpen(false);
 
-  return (
-    <div className="min-h-screen">
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:font-semibold"
-      >
-        Lewati ke konten utama
-      </a>
-      <NavbarComponent sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((value) => !value)} />
-      <div className="lg:flex">
-        <SidebarComponent open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main id="main" className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-          <Outlet />
+  if (!token) return <Navigate to="/auth/login" replace />;
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen lg:pl-72">
+        <SidebarComponent open={drawerOpen} onClose={closeDrawer} />
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-8">
+          <h1 className="sr-only">Pusat Lost &amp; Found</h1>
+          <p role="status" className="flex items-center justify-center gap-3 py-24 font-semibold text-indigo-950">
+            <IconLoader2 className="animate-spin" /> Memuat sesi…
+          </p>
         </main>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen lg:pl-72">
+      <SidebarComponent open={drawerOpen} onClose={closeDrawer} />
+      <NavbarComponent onOpenMenu={() => setDrawerOpen(true)} />
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-8">
+        <Outlet />
+      </main>
     </div>
   );
 }

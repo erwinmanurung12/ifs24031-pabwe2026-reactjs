@@ -1,73 +1,109 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  asyncAddLostFound,
+  asyncChangeLostFound,
+  asyncChangeLostFoundCover,
+  asyncDeleteLostFound,
+  asyncGetLostFound,
+  asyncGetLostFoundStats,
+  asyncGetLostFounds,
+} from "./action";
+import * as api from "../api/lostFoundApi";
+import { showConfirmDialog, showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
+import { makeStore } from "../../../test-utils";
 
 vi.mock("../api/lostFoundApi");
 vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
+  showErrorDialog: vi.fn(),
+  showSuccessDialog: vi.fn().mockResolvedValue({}),
+  showConfirmDialog: vi.fn(),
 }));
 
-import * as api from "../api/lostFoundApi";
-import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
-import * as actions from "./action";
+beforeEach(() => vi.clearAllMocks());
 
-describe("lost-found action", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("asyncSetLostFounds berhasil", async () => {
-    api.fetchLostFounds.mockResolvedValue({ status: "success", data: { lost_founds: [{ id: 1 }] } });
-    const dispatch = vi.fn();
-    expect(await actions.asyncSetLostFounds({ isMe: true })(dispatch)).toBe(true);
-    expect(api.fetchLostFounds).toHaveBeenCalledWith({ isMe: true });
-    expect(dispatch).toHaveBeenCalledWith(actions.setLostFoundsActionCreator([{ id: 1 }]));
-    expect(dispatch).toHaveBeenCalledWith(actions.setIsLostFoundActionCreator(false));
+describe("pengambilan data", () => {
+  it("asyncGetLostFounds mengisi daftar dan mematikan loading", async () => {
+    api.fetchLostFounds.mockResolvedValue({ data: { lost_founds: [{ id: 1 }] } });
+    const store = makeStore();
+    await store.dispatch(asyncGetLostFounds({ is_me: 1 }));
+    expect(api.fetchLostFounds).toHaveBeenCalledWith({ is_me: 1 });
+    expect(store.getState().lostFounds.lostFounds).toEqual([{ id: 1 }]);
+    expect(store.getState().lostFounds.isLostFound).toBe(false);
   });
 
-  it("asyncSetLostFounds gagal", async () => {
-    api.fetchLostFounds.mockResolvedValue({ status: "fail", message: "Gagal" });
-    expect(await actions.asyncSetLostFounds()(vi.fn())).toBe(false);
-    expect(showErrorDialog).toHaveBeenCalledWith("Gagal");
+  it("asyncGetLostFounds menampilkan error", async () => {
+    api.fetchLostFounds.mockRejectedValue(new Error("gagal"));
+    const store = makeStore();
+    await store.dispatch(asyncGetLostFounds());
+    expect(showErrorDialog).toHaveBeenCalledWith("gagal");
+    expect(store.getState().lostFounds.isLostFound).toBe(false);
   });
 
-  it("asyncSetLostFound berhasil dan gagal", async () => {
-    api.fetchLostFound.mockResolvedValueOnce({ status: "success", data: { lost_found: { id: 2 } } });
-    const dispatch = vi.fn();
-    expect(await actions.asyncSetLostFound(2)(dispatch)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith(actions.setLostFoundActionCreator({ id: 2 }));
+  it("asyncGetLostFound sukses dan gagal", async () => {
+    api.fetchLostFound.mockResolvedValueOnce({ data: { lost_found: { id: 3 } } });
+    const store = makeStore();
+    expect(await store.dispatch(asyncGetLostFound(3))).toBe(true);
+    expect(store.getState().lostFounds.lostFound).toEqual({ id: 3 });
 
-    api.fetchLostFound.mockResolvedValueOnce({ status: "fail", message: "Tidak ada" });
-    expect(await actions.asyncSetLostFound(2)(dispatch)).toBe(false);
-    expect(dispatch).toHaveBeenCalledWith(actions.setLostFoundActionCreator(null));
-    expect(showErrorDialog).toHaveBeenCalledWith("Tidak ada");
+    api.fetchLostFound.mockRejectedValueOnce(new Error("404"));
+    expect(await store.dispatch(asyncGetLostFound(9))).toBe(false);
+    expect(store.getState().lostFounds.lostFound).toBeNull();
+    expect(showErrorDialog).toHaveBeenCalledWith("404");
   });
 
-  it("asyncSetLostFoundStats berhasil dan gagal tanpa dialog", async () => {
-    api.fetchLostFoundStatsDaily.mockResolvedValueOnce({ status: "success", data: { stats_losts: {} } });
-    const dispatch = vi.fn();
-    expect(await actions.asyncSetLostFoundStats()(dispatch)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith(actions.setLostFoundStatsActionCreator({ stats_losts: {} }));
+  it("asyncGetLostFoundStats menggabungkan harian dan bulanan", async () => {
+    api.fetchStatsDaily.mockResolvedValue({ data: [1] });
+    api.fetchStatsMonthly.mockResolvedValue({ data: [2] });
+    const store = makeStore();
+    await store.dispatch(asyncGetLostFoundStats());
+    expect(store.getState().lostFounds.lostFoundStats).toEqual({ daily: [1], monthly: [2] });
+  });
 
-    api.fetchLostFoundStatsDaily.mockResolvedValueOnce({ status: "fail" });
-    expect(await actions.asyncSetLostFoundStats()(dispatch)).toBe(false);
-    expect(showErrorDialog).not.toHaveBeenCalled();
+  it("asyncGetLostFoundStats menampilkan error", async () => {
+    api.fetchStatsDaily.mockRejectedValue(new Error("stat gagal"));
+    api.fetchStatsMonthly.mockResolvedValue({ data: [] });
+    await makeStore().dispatch(asyncGetLostFoundStats());
+    expect(showErrorDialog).toHaveBeenCalledWith("stat gagal");
+  });
+});
+
+describe("mutasi", () => {
+  it.each([
+    ["tambah", () => asyncAddLostFound({ title: "a" }), api.postLostFound, "isLostFoundAdded"],
+    ["ubah", () => asyncChangeLostFound(1, { title: "a" }), api.putLostFound, "isLostFoundChanged"],
+    ["ganti cover", () => asyncChangeLostFoundCover(1, new File(["a"], "a.png")), api.postLostFoundCover, "isLostFoundChangedCover"],
+  ])("%s sukses menyalakan flag selesai", async (_n, build, call, doneFlag) => {
+    call.mockResolvedValue({});
+    const store = makeStore();
+    expect(await store.dispatch(build())).toBe(true);
+    expect(store.getState().lostFounds[doneFlag]).toBe(true);
+    expect(showSuccessDialog).toHaveBeenCalled();
   });
 
   it.each([
-    ["asyncAddLostFound", "postLostFound", "Laporan berhasil ditambahkan", actions.setIsLostFoundAddedActionCreator],
-    ["asyncChangeLostFound", "putLostFound", "Laporan berhasil diperbarui", actions.setIsLostFoundChangedActionCreator],
-    ["asyncChangeLostFoundCover", "postLostFoundCover", "Cover berhasil diperbarui", actions.setIsLostFoundChangedCoverActionCreator],
-    ["asyncDeleteLostFound", "deleteLostFound", "Laporan berhasil dihapus", actions.setIsLostFoundDeletedActionCreator],
-  ])("%s berhasil dan gagal", async (name, apiName, message, doneCreator) => {
-    api[apiName].mockResolvedValueOnce({ status: "success" });
-    const dispatch = vi.fn();
-    expect(await actions[name]({ id: 1 })(dispatch)).toBe(true);
-    expect(dispatch).toHaveBeenCalledWith(doneCreator(true));
-    expect(showSuccessDialog).toHaveBeenCalledWith(message);
+    ["tambah", () => asyncAddLostFound({}), api.postLostFound, "isLostFoundAdd"],
+    ["ubah", () => asyncChangeLostFound(1, {}), api.putLostFound, "isLostFoundChange"],
+    ["ganti cover", () => asyncChangeLostFoundCover(1, null), api.postLostFoundCover, "isLostFoundChangeCover"],
+  ])("%s gagal menampilkan error dan mematikan flag proses", async (_n, build, call, busyFlag) => {
+    call.mockRejectedValue(new Error("ditolak"));
+    const store = makeStore();
+    expect(await store.dispatch(build())).toBe(false);
+    expect(showErrorDialog).toHaveBeenCalledWith("ditolak");
+    expect(store.getState().lostFounds[busyFlag]).toBe(false);
+  });
 
-    vi.clearAllMocks();
-    api[apiName].mockResolvedValueOnce({ status: "fail", message: "Ditolak" });
-    const dispatch2 = vi.fn();
-    expect(await actions[name]({ id: 1 })(dispatch2)).toBe(false);
-    expect(dispatch2).not.toHaveBeenCalledWith(doneCreator(true));
-    expect(showErrorDialog).toHaveBeenCalledWith("Ditolak");
+  it("hapus dibatalkan bila tidak dikonfirmasi", async () => {
+    showConfirmDialog.mockResolvedValue(false);
+    expect(await makeStore().dispatch(asyncDeleteLostFound(1))).toBe(false);
+    expect(api.removeLostFound).not.toHaveBeenCalled();
+  });
+
+  it("hapus berjalan setelah konfirmasi", async () => {
+    showConfirmDialog.mockResolvedValue(true);
+    api.removeLostFound.mockResolvedValue({});
+    const store = makeStore();
+    expect(await store.dispatch(asyncDeleteLostFound(1))).toBe(true);
+    expect(api.removeLostFound).toHaveBeenCalledWith(1);
+    expect(store.getState().lostFounds.isLostFoundDeleted).toBe(true);
   });
 });

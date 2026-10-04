@@ -1,83 +1,99 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import FormField from "../../../components/FormField";
+import { IconEye, IconEyeOff, IconLoader2 } from "@tabler/icons-react";
 import useInput from "../../../hooks/useInput";
-import useDocumentTitle from "../../../hooks/useDocumentTitle";
-import { btnPrimary } from "../../../helpers/classHelper";
-import { asyncSetIsAuthLogin } from "../states/action";
+import { asyncLogin } from "../states/action";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
-  useDocumentTitle("Masuk");
   const dispatch = useDispatch();
-  const [email, onEmailChange] = useInput("");
-  const [password, onPasswordChange] = useInput("");
-  const [showPassword, setShowPassword] = useState(false);
+  const email = useInput("");
+  const password = useInput("");
+  const [reveal, setReveal] = useState(false);
   const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event) {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const nextErrors = {};
-    if (!email.trim()) nextErrors.email = "Email wajib diisi";
-    if (!password) nextErrors.password = "Kata sandi wajib diisi";
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    const found = {};
+    if (!EMAIL_PATTERN.test(email.value)) found.email = "Format email tidak valid";
+    if (password.value.length < 6) found.password = "Kata sandi minimal 6 karakter";
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
 
-    setLoading(true);
-    await dispatch(asyncSetIsAuthLogin({ email: email.trim(), password }));
-    setLoading(false);
-  }
+    setSubmitting(true);
+    await dispatch(asyncLogin({ email: email.value, password: password.value }));
+    setSubmitting(false);
+  };
 
   return (
-    <>
-      <h1 className="text-3xl font-extrabold text-slate-900">Masuk ke akun Anda</h1>
-      <p className="mt-2 text-slate-700">Kelola laporan barang hilang dan temuan Anda.</p>
+    <div className="rounded-[2rem] bg-white p-8 shadow-xl shadow-indigo-950/5 ring-1 ring-stone-200">
+      <h1 className="text-3xl font-extrabold text-indigo-950">Masuk</h1>
+      <p className="mt-2 text-sm text-stone-600">Lanjutkan untuk melihat dan mengelola laporan barang.</p>
 
       <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-5">
-        <FormField
-          id="email"
-          name="email"
-          label="Email"
-          type="email"
-          autoComplete="email"
-          placeholder="nama@email.com"
-          value={email}
-          onChange={onEmailChange}
-          error={errors.email}
-        />
         <div>
-          <FormField
-            id="password"
-            name="password"
-            label="Kata sandi"
-            type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
-            placeholder="Masukkan kata sandi"
-            value={password}
-            onChange={onPasswordChange}
-            error={errors.password}
-          />
-          <label className="mt-2 flex items-center gap-2 text-sm font-semibold text-blue-800">
-            <input
-              type="checkbox"
-              checked={showPassword}
-              onChange={(event) => setShowPassword(event.target.checked)}
-            />
-            Tampilkan kata sandi
+          <label htmlFor="login-email-input" className="mb-1.5 block text-sm font-bold text-stone-700">
+            Email
           </label>
+          <input
+            id="login-email-input"
+            type="email"
+            autoComplete="email"
+            placeholder="nama@del.ac.id"
+            value={email.value}
+            onChange={email.onChange}
+            className="w-full rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100"
+          />
+          {errors.email && <p className="mt-1.5 text-sm font-medium text-rose-600">{errors.email}</p>}
         </div>
-        <button type="submit" disabled={loading} className={`${btnPrimary} w-full`}>
-          {loading ? "Memproses..." : "Masuk"}
+
+        <div>
+          <label htmlFor="login-password-input" className="mb-1.5 block text-sm font-bold text-stone-700">
+            Kata sandi
+          </label>
+          <div className="relative">
+            <input
+              id="login-password-input"
+              type={reveal ? "text" : "password"}
+              autoComplete="current-password"
+              value={password.value}
+              onChange={password.onChange}
+              className="w-full rounded-2xl border border-stone-300 bg-stone-50 py-3 pl-4 pr-12 outline-none transition focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100"
+            />
+            <button
+              type="button"
+              aria-label={reveal ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+              onClick={() => setReveal((value) => !value)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-stone-600"
+            >
+              {reveal ? <IconEyeOff size={20} /> : <IconEye size={20} />}
+            </button>
+          </div>
+          {errors.password && (
+            <p className="mt-1.5 text-sm font-medium text-rose-600">{errors.password}</p>
+          )}
+        </div>
+
+        <button
+          id="login-submit-button"
+          type="submit"
+          disabled={submitting}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-950 py-3.5 font-bold text-amber-300 transition hover:bg-indigo-900 disabled:opacity-60"
+        >
+          {submitting && <IconLoader2 size={18} className="animate-spin" />}
+          {submitting ? "Memproses…" : "Masuk"}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-700">
+      <p className="mt-6 text-center text-sm text-stone-600">
         Belum punya akun?{" "}
-        <Link to="/auth/register" className="font-bold text-blue-700 underline">
+        <Link to="/auth/register" className="font-bold text-indigo-700 hover:underline">
           Daftar sekarang
         </Link>
       </p>
-    </>
+    </div>
   );
 }

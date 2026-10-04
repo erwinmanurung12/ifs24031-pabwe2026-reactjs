@@ -1,20 +1,16 @@
-import { describe, it, expect } from "vitest";
-import store, { createStore, reducer } from "./store";
+import { expect, it } from "vitest";
+import store, { reducer } from "./store";
+import { isAuthLogin } from "./features/auth/states/reducer";
+import { lostFounds } from "./features/lost-founds/states/reducer";
 
-describe("store", () => {
-  it("menggabungkan seluruh reducer fitur", () => {
-    const keys = Object.keys(createStore().getState());
-    expect(keys.sort()).toEqual(Object.keys(reducer).sort());
-  });
+it("menggabungkan slice auth, users, dan lostFounds", () => {
+  expect(Object.keys(reducer)).toEqual(["auth", "users", "lostFounds"]);
+  expect(Object.keys(store.getState())).toEqual(["auth", "users", "lostFounds"]);
+});
 
-  it("menyediakan store default dengan state awal", () => {
-    const state = store.getState();
-    expect(state.isAuthLogin).toBe(false);
-    expect(state.lostFounds).toEqual([]);
-    expect(state.profile).toBeNull();
-  });
-
-  it("menerima preloadedState", () => {
-    expect(createStore({ isAuthLogin: true }).getState().isAuthLogin).toBe(true);
-  });
+it("slice bereaksi terhadap action dari fitur masing-masing", () => {
+  store.dispatch(isAuthLogin("tok"));
+  store.dispatch(lostFounds([{ id: 1 }]));
+  expect(store.getState().auth.token).toBe("tok");
+  expect(store.getState().lostFounds.lostFounds).toEqual([{ id: 1 }]);
 });

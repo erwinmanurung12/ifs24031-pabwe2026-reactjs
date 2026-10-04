@@ -1,43 +1,45 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("../../../helpers/apiHelper", () => ({ fetchApi: vi.fn(async () => ({ status: "success" })) }));
-
-import { fetchApi } from "../../../helpers/apiHelper";
+import { beforeEach, expect, it, vi } from "vitest";
 import * as api from "./lostFoundApi";
+import { callApi } from "../../../helpers/apiHelper";
 
-describe("lostFoundApi", () => {
-  it("fetchLostFounds dengan dan tanpa filter", async () => {
-    await api.fetchLostFounds();
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds", { params: { status: undefined, is_completed: undefined, is_me: undefined } });
-    await api.fetchLostFounds({ status: "lost", isCompleted: 1, isMe: true });
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds", { params: { status: "lost", is_completed: 1, is_me: 1 } });
-  });
+vi.mock("../../../helpers/apiHelper", () => ({ callApi: vi.fn().mockResolvedValue({}) }));
+beforeEach(() => vi.clearAllMocks());
 
-  it("detail, tambah, ubah, hapus", async () => {
-    await api.fetchLostFound(3);
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds/3");
-    await api.postLostFound({ title: "t", description: "d", status: "lost" });
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds", { method: "POST", body: { title: "t", description: "d", status: "lost" } });
-    await api.putLostFound({ id: 3, title: "t", description: "d", status: "found", isCompleted: true });
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds/3", { method: "PUT", body: { title: "t", description: "d", status: "found", is_completed: 1 } });
-    await api.putLostFound({ id: 3, title: "t", description: "d", status: "found", isCompleted: false });
-    expect(fetchApi.mock.calls.at(-1)[1].body.is_completed).toBe(0);
-    await api.deleteLostFound(3);
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds/3", { method: "DELETE" });
-  });
+it("fetchLostFounds meneruskan filter status, is_completed, is_me", async () => {
+  const params = { status: "lost", is_completed: 0, is_me: 1 };
+  await api.fetchLostFounds(params);
+  expect(callApi).toHaveBeenCalledWith("/lost-founds", { params });
+});
 
-  it("cover dikirim sebagai FormData", async () => {
-    const file = new File(["x"], "a.png");
-    await api.postLostFoundCover({ id: 3, file });
-    const [path, options] = fetchApi.mock.calls.at(-1);
-    expect(path).toBe("/lost-founds/3/cover");
-    expect(options.formData.get("cover")).toBe(file);
-  });
+it("fetchLostFound -> GET /lost-founds/:id", async () => {
+  await api.fetchLostFound(5);
+  expect(callApi).toHaveBeenCalledWith("/lost-founds/5");
+});
 
-  it("statistik", async () => {
-    await api.fetchLostFoundStatsDaily();
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds/stats/daily");
-    await api.fetchLostFoundStatsMonthly();
-    expect(fetchApi).toHaveBeenLastCalledWith("/lost-founds/stats/monthly");
-  });
+it("postLostFound & putLostFound", async () => {
+  await api.postLostFound({ title: "a" });
+  await api.putLostFound(5, { title: "b" });
+  expect(callApi).toHaveBeenNthCalledWith(1, "/lost-founds", { method: "POST", body: { title: "a" } });
+  expect(callApi).toHaveBeenNthCalledWith(2, "/lost-founds/5", { method: "PUT", body: { title: "b" } });
+});
+
+it("postLostFoundCover mengirim FormData field cover", async () => {
+  const file = new File(["x"], "c.png", { type: "image/png" });
+  await api.postLostFoundCover(5, file);
+  const [path, options] = callApi.mock.calls[0];
+  expect(path).toBe("/lost-founds/5/cover");
+  expect(options.method).toBe("POST");
+  expect(options.form.get("cover")).toBe(file);
+});
+
+it("removeLostFound -> DELETE", async () => {
+  await api.removeLostFound(5);
+  expect(callApi).toHaveBeenCalledWith("/lost-founds/5", { method: "DELETE" });
+});
+
+it("statistik harian & bulanan", async () => {
+  await api.fetchStatsDaily();
+  await api.fetchStatsMonthly();
+  expect(callApi).toHaveBeenNthCalledWith(1, "/lost-founds/stats/daily");
+  expect(callApi).toHaveBeenNthCalledWith(2, "/lost-founds/stats/monthly");
 });

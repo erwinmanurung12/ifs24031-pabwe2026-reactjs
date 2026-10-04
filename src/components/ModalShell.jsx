@@ -1,68 +1,47 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { IconX } from "@tabler/icons-react";
 
-const FOCUSABLE = "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])";
-
-export default function ModalShell({ id, title, onClose, children }) {
-  const dialogRef = useRef(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
+// Kerangka dialog: backdrop klik-untuk-tutup, tombol Esc, dan header judul.
+export default function ModalShell({ title, subtitle, onClose, children }) {
   useEffect(() => {
-    const previous = document.activeElement;
-    const dialog = dialogRef.current;
-    dialog.focus();
-
-    function onKeyDown(event) {
-      if (event.key === "Escape") {
-        onCloseRef.current();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const items = dialog.querySelectorAll(FOCUSABLE);
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      previous.focus();
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose();
     };
-  }, []);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div
-        ref={dialogRef}
+        data-testid="modal-backdrop"
+        className="absolute inset-0 bg-indigo-950/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby={`${id}-title`}
-        tabIndex={-1}
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6"
+        aria-labelledby="modal-title"
+        className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-[2rem] bg-white p-6 shadow-2xl sm:rounded-[2rem]"
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 id={`${id}-title`} className="text-lg font-bold text-slate-900">
-            {title}
-          </h2>
+        <header className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 id="modal-title" className="text-xl font-bold text-indigo-950">
+              {title}
+            </h2>
+            <p className="mt-1 text-sm text-stone-600">{subtitle}</p>
+          </div>
           <button
             type="button"
+            aria-label="Tutup"
             onClick={onClose}
-            aria-label="Tutup dialog"
-            className="rounded-lg p-1.5 text-slate-700 hover:bg-slate-100"
+            className="rounded-full bg-stone-100 p-2 text-stone-600 transition hover:bg-stone-200"
           >
-            <IconX size={20} aria-hidden="true" />
+            <IconX size={18} />
           </button>
-        </div>
+        </header>
         {children}
-      </div>
+      </section>
     </div>
   );
 }

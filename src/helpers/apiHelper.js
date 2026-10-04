@@ -1,63 +1,37 @@
-const TOKEN_KEY = "accessToken";
+// Pembungkus fetch untuk REST API Delcom + penyimpanan token di localStorage.
+const TOKEN_SLOT = "temubalik.token";
 
-export function getAccessToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
+export const getAccessToken = () => localStorage.getItem(TOKEN_SLOT);
+export const putAccessToken = (token) => localStorage.setItem(TOKEN_SLOT, token);
+export const removeAccessToken = () => localStorage.removeItem(TOKEN_SLOT);
 
-export function putAccessToken(token) {
-  localStorage.setItem(TOKEN_KEY, token);
-}
+export const buildUrl = (path, params = {}) => {
+  // Argumen kedua dibutuhkan agar base URL relatif (mis. "/api-proxy") valid.
+  const url = new URL(`${DELCOM_BASEURL}${path}`, window.location.origin);
+  Object.entries(params)
+    .filter(([, value]) => `${value ?? ""}` !== "")
+    .forEach(([key, value]) => url.searchParams.append(key, value));
+  return url.toString();
+};
 
-export function removeAccessToken() {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
-// Mengubah path relatif dari API (mis. img/users/a.png) menjadi URL penuh.
-export function getAssetUrl(path) {
-  if (!path) return null;
-  if (/^https?:\/\//.test(path)) return path;
-  const origin = DELCOM_BASEURL.replace(/\/api\/v\d+\/?$/, "");
-  return `${origin}/${path.replace(/^\//, "")}`;
-}
-
-// Menyusun pesan error dari respons API (message + detail validasi).
-export function getResponseMessage(response) {
-  const details = Object.values(response?.data ?? {})
-    .flat()
-    .filter((item) => typeof item === "string");
-  const message = response?.message ?? "Terjadi kesalahan";
-  return details.length ? `${message}: ${details.join(", ")}` : message;
-}
-
-export async function fetchApi(
-  path,
-  { method = "GET", params, body, formData, auth = true } = {}
-) {
-  const url = new URL(`${DELCOM_BASEURL}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        url.searchParams.set(key, value);
-      }
-    });
-  }
-
+export async function callApi(path, { method = "GET", body, form, params } = {}) {
   const headers = { Accept: "application/json" };
   const token = getAccessToken();
-  if (auth && token) headers.Authorization = `Bearer ${token}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
-  const options = { method, headers };
-  if (formData) {
-    options.body = formData;
-  } else if (body !== undefined) {
+  let payload;
+  if (form) {
+    payload = form;
+  } else if (body) {
     headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify(body);
+    payload = JSON.stringify(body);
   }
 
-  try {
-    const response = await fetch(url.toString(), options);
-    return await response.json();
-  } catch {
-    return { status: "error", message: "Tidak dapat terhubung ke server" };
+  const response = await fetch(buildUrl(path, params), { method, headers, body: payload });
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok || json.success === false) {
+    throw new Error(json.message || `Permintaan gagal (${response.status})`);
   }
+  return json;
 }

@@ -1,31 +1,67 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Route, Routes } from "react-router-dom";
 import NavbarComponent from "./NavbarComponent";
-import { renderWithProviders } from "../../../test-utils";
+import { renderWithProviders, stateWith } from "../../../test-utils";
 
-const state = { isAuthLogin: true, profile: { id: 1, name: "Budi", photo: null } };
+const profile = { id: 1, name: "Budi Santoso", email: "budi@del.ac.id", photo: null };
+const preloadedState = stateWith({ auth: { token: "t" }, users: { profile } });
+
+const setup = (onOpenMenu = vi.fn()) =>
+  renderWithProviders(
+    <Routes>
+      <Route path="/" element={<NavbarComponent onOpenMenu={onOpenMenu} />} />
+      <Route path="/profile" element={<p>Halaman profil</p>} />
+      <Route path="/auth/login" element={<p>Halaman login</p>} />
+    </Routes>,
+    { preloadedState },
+  );
 
 describe("NavbarComponent", () => {
-  it("menampilkan logo, profil, dan memicu toggle sidebar", async () => {
-    const onToggle = vi.fn();
-    renderWithProviders(<NavbarComponent onToggleSidebar={onToggle} sidebarOpen={false} />, { preloadedState: state });
-    expect(screen.getByRole("banner")).toBeInTheDocument();
-    expect(screen.getByText("Budi")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Buka menu navigasi" }));
-    expect(onToggle).toHaveBeenCalled();
+  it("menampilkan judul, status sesi, dan nama pengguna", () => {
+    setup();
+    expect(screen.getByRole("heading", { name: /Pusat Lost/ })).toBeInTheDocument();
+    expect(screen.getByText("Sesi aktif")).toBeInTheDocument();
+    expect(screen.getByText("Budi Santoso")).toBeInTheDocument();
   });
 
-  it("logout mengosongkan sesi", async () => {
-    localStorage.setItem("accessToken", "t");
-    const { store } = renderWithProviders(<NavbarComponent onToggleSidebar={() => {}} sidebarOpen />, { preloadedState: state });
-    await userEvent.click(screen.getByRole("button", { name: /Keluar/ }));
-    expect(store.getState().isAuthLogin).toBe(false);
-    expect(localStorage.getItem("accessToken")).toBeNull();
+  it("tidak merender apa pun saat profil belum ada (sesi berakhir)", () => {
+    const { container } = renderWithProviders(<NavbarComponent onOpenMenu={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("tetap tampil saat profil belum ada", () => {
-    renderWithProviders(<NavbarComponent onToggleSidebar={() => {}} sidebarOpen={false} />);
-    expect(screen.getByRole("link", { name: /Profil saya/ })).toBeInTheDocument();
+  it("tombol hamburger memanggil onOpenMenu", async () => {
+    const onOpenMenu = vi.fn();
+    setup(onOpenMenu);
+    await userEvent.click(screen.getByRole("button", { name: "Buka menu" }));
+    expect(onOpenMenu).toHaveBeenCalled();
+  });
+
+  it("dropdown dapat dibuka dan ditutup", async () => {
+    setup();
+    const trigger = screen.getByRole("button", { name: /Budi Santoso/ });
+    await userEvent.click(trigger);
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByText("budi@del.ac.id")).toBeInTheDocument();
+    await userEvent.click(trigger);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("menu Profil saya menutup dropdown dan berpindah halaman", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: /Budi Santoso/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Profil saya/ }));
+    expect(screen.getByText("Halaman profil")).toBeInTheDocument();
+  });
+
+  it("logout menghapus token dan mengarahkan ke login", async () => {
+    localStorage.setItem("temubalik.token", "t");
+    const { store } = setup();
+    await userEvent.click(screen.getByRole("button", { name: /Budi Santoso/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Keluar/ }));
+    expect(store.getState().auth.token).toBeNull();
+    expect(localStorage.getItem("temubalik.token")).toBeNull();
+    expect(screen.getByText("Halaman login")).toBeInTheDocument();
   });
 });

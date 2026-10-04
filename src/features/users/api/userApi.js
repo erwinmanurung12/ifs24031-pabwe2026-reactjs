@@ -1,20 +1,12 @@
-import { fetchApi } from "../../../helpers/apiHelper";
+import { callApi } from "../../../helpers/apiHelper";
 
-export const fetchUsers = () => fetchApi("/users");
-
-export const fetchProfile = () => fetchApi("/users/me");
-
-export const putProfile = ({ name, email }) =>
-  fetchApi("/users/me", { method: "PUT", body: { name, email } });
-
-export function postProfilePhoto(file) {
-  const formData = new FormData();
-  formData.append("photo", file);
-  return fetchApi("/users/me/photo", { method: "POST", formData });
-}
-
-export const putProfilePassword = ({ password, newPassword }) =>
-  fetchApi("/users/me/password", {
-    method: "PUT",
-    body: { password, new_password: newPassword },
-  });
+export const fetchUsers = () => callApi("/users");
+export const fetchMe = () => callApi("/users/me");
+export const putMe = (payload) => callApi("/users/me", { method: "PUT", body: payload });
+export const postMyPhoto = (file) => {
+  const form = new FormData();
+  form.append("photo", file);
+  return callApi("/users/me/photo", { method: "POST", form });
+};
+export const putMyPassword = (payload) =>
+  callApi("/users/me/password", { method: "PUT", body: payload });

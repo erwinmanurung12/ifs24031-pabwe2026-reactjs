@@ -1,62 +1,73 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import App from "./App";
+import { fetchMe, fetchUsers } from "./features/users/api/userApi";
+import { fetchLostFounds, fetchLostFound } from "./features/lost-founds/api/lostFoundApi";
+import { renderWithProviders, stateWith } from "./test-utils";
 
 vi.mock("./features/users/api/userApi");
 vi.mock("./features/lost-founds/api/lostFoundApi");
-vi.mock("./helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
-  showConfirmDialog: vi.fn(),
-  formatDate: () => "-",
-}));
+vi.mock("./helpers/toolsHelper", async (original) => ({ ...(await original()), showErrorDialog: vi.fn() }));
 
-import * as userApi from "./features/users/api/userApi";
-import * as lfApi from "./features/lost-founds/api/lostFoundApi";
-import App from "./App";
-import { renderWithProviders } from "./test-utils";
+const ME = { id: 1, name: "Budi Santoso", email: "b@del.ac.id", photo: null };
+const signedIn = () => stateWith({ auth: { token: "t" } });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  fetchMe.mockResolvedValue({ data: { user: ME } });
+  fetchUsers.mockResolvedValue({ data: { users: [ME] } });
+  fetchLostFounds.mockResolvedValue({
+    data: { lost_founds: [{ id: 9, title: "Jam tangan", description: "Jam tangan hitam", status: "lost", is_completed: 0, created_at: "2026-03-01" }] },
+  });
+  fetchLostFound.mockResolvedValue({
+    data: { lost_found: { id: 9, title: "Jam tangan", description: "Jam tangan hitam", status: "lost", is_completed: 0, created_at: "2026-03-01" } },
+  });
+});
 
 describe("App routing", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    userApi.fetchProfile.mockResolvedValue({ status: "success", data: { user: { id: 1, name: "Budi", email: "b@b.c", photo: null } } });
-    userApi.fetchUsers.mockResolvedValue({ status: "success", data: { users: [] } });
-    lfApi.fetchLostFounds.mockResolvedValue({ status: "success", data: { lost_founds: [] } });
-    lfApi.fetchLostFoundStatsDaily.mockResolvedValue({ status: "fail" });
-    lfApi.fetchLostFound.mockResolvedValue({ status: "fail", message: "x" });
+  it("tamu yang membuka / diarahkan ke halaman login", () => {
+    renderWithProviders(<App />);
+    expect(screen.getByRole("heading", { name: "Masuk" })).toBeInTheDocument();
   });
 
-  it("tamu diarahkan ke halaman login", async () => {
-    renderWithProviders(<App />, { route: "/" });
-    expect(await screen.findByRole("heading", { name: "Masuk ke akun Anda" })).toBeInTheDocument();
-  });
-
-  it("/auth diarahkan ke login dan /auth/register tersedia", async () => {
+  it("/auth otomatis ke /auth/login", () => {
     renderWithProviders(<App />, { route: "/auth" });
-    expect(await screen.findByRole("heading", { name: "Masuk ke akun Anda" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Masuk" })).toBeInTheDocument();
   });
 
-  it("halaman register dimuat lazy", async () => {
+  it("/auth/register menampilkan form pendaftaran", () => {
     renderWithProviders(<App />, { route: "/auth/register" });
-    expect(await screen.findByRole("heading", { name: "Buat akun baru" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Buat akun" })).toBeInTheDocument();
   });
 
-  it("rute tak dikenal kembali ke beranda/login", async () => {
-    renderWithProviders(<App />, { route: "/tidak-ada" });
-    expect(await screen.findByRole("heading", { name: "Masuk ke akun Anda" })).toBeInTheDocument();
+  it("pengguna login melihat dashboard di /", async () => {
+    renderWithProviders(<App />, { preloadedState: signedIn() });
+    expect(await screen.findByText("Jam tangan")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Daftar laporan" })).toBeInTheDocument();
   });
 
-  it.each([
-    ["/", "Laporan barang"],
-    ["/users", "Daftar pengguna"],
-    ["/profile", "Informasi akun"],
-    ["/lost-founds/3", "Laporan tidak ditemukan."],
-  ])("pengguna login membuka %s", async (route, text) => {
-    renderWithProviders(<App />, { route, preloadedState: { isAuthLogin: true } });
-    expect(await screen.findByText(text)).toBeInTheDocument();
+  it("pengguna login yang membuka /auth dilempar ke dashboard", async () => {
+    renderWithProviders(<App />, { route: "/auth/login", preloadedState: signedIn() });
+    expect(await screen.findByText("Jam tangan")).toBeInTheDocument();
   });
 
-  it("pengguna login diarahkan keluar dari halaman auth", async () => {
-    renderWithProviders(<App />, { route: "/auth/login", preloadedState: { isAuthLogin: true } });
-    expect(await screen.findByText("Laporan barang")).toBeInTheDocument();
+  it("/lost-founds/:id menampilkan detail", async () => {
+    renderWithProviders(<App />, { route: "/lost-founds/9", preloadedState: signedIn() });
+    expect(await screen.findByRole("heading", { name: "Jam tangan", level: 2 })).toBeInTheDocument();
+  });
+
+  it("/users menampilkan daftar pengguna", async () => {
+    renderWithProviders(<App />, { route: "/users", preloadedState: signedIn() });
+    expect(await screen.findByRole("heading", { name: "Komunitas pengguna" })).toBeInTheDocument();
+  });
+
+  it("/profile menampilkan pengaturan akun", async () => {
+    renderWithProviders(<App />, { route: "/profile", preloadedState: signedIn() });
+    expect(await screen.findByRole("heading", { name: "Ganti kata sandi" })).toBeInTheDocument();
+  });
+
+  it("route tidak dikenal diarahkan ke /", async () => {
+    renderWithProviders(<App />, { route: "/acak/sekali", preloadedState: signedIn() });
+    expect(await screen.findByText("Jam tangan")).toBeInTheDocument();
   });
 });

@@ -1,30 +1,37 @@
-# ifs24031-pabwe2026-reactjs
+# TemuBalik — Lost & Founds (ifs24010-pabwe2026-reactjs)
 
-Aplikasi **Lost & Founds** (ReactJS + JavaScript, Vite, Redux Toolkit, Tailwind CSS v4).
-Sumber data: `https://open-api.delcom.org/api/v1`.
+Aplikasi pelaporan barang hilang & temuan kampus berbasis **ReactJS + Vite**, memakai
+REST API Delcom (`/lost-founds`). State dikelola **Redux Toolkit**, routing **React Router**,
+UI **Tailwind CSS v4**, pengujian **Vitest + React Testing Library** (coverage 100%).
 
 ## Menjalankan
 
 ```bash
-bun install
-bun run dev              # http://localhost:3000 (port dari APP_PORT)
-bun run test:coverage    # target 100%
-bun run build
+bun install            # atau: npm install
+cp .env.example .env   # opsional; .env bawaan sudah mengarah ke API Delcom
+bun run dev            # http://localhost:3000
 ```
 
-Salin `.env.example` menjadi `.env` bila ingin mengubah `VITE_DELCOM_BASEURL` / `APP_PORT`
-(tanpa `.env`, otomatis memakai `https://open-api.delcom.org/api/v1`).
+## Pengujian
 
-## Deploy (wajib untuk Delcom Grading, localhost tidak diizinkan)
+```bash
+bun run test           # semua test
+bun run test:coverage  # test + laporan coverage (threshold 100%)
+```
 
-1. Push proyek ke GitHub (repo `ifs24031-pabwe2026-reactjs`).
-2. Import ke Vercel dengan **nama project `ifs24031-pabwe2026-reactjs`**
-   -> URL `https://ifs24031-pabwe2026-reactjs.vercel.app` (sesuai "Batas Prefix URL").
-3. Framework preset: Vite. Build command `bun run build` (atau `npm run build`), output `dist`.
-4. `vercel.json` sudah menangani SPA fallback (refresh di `/auth/login` tidak 404).
+## Build
 
-## Catatan audit (Lighthouse + axe)
+```bash
+bun run build && bun run preview
+```
 
-- Halaman login/register: title, meta description, `lang="id"`, `robots.txt`, label form, landmark, fokus terlihat.
-- Rute dashboard dan SweetAlert2 di-lazy-load; font Google dimuat non-blocking.
-- Tes `src/a11y.test.jsx` menjalankan axe-core pada seluruh halaman.
+## Rute
+
+| Rute | Halaman | Akses |
+| ---- | ------- | ----- |
+| `/auth/login`, `/auth/register` | Masuk / Daftar | Tamu |
+| `/` | Daftar laporan, filter, pencarian, ringkasan | Login |
+| `/?tampilan=statistik` | Statistik harian & bulanan | Login |
+| `/lost-founds/:id` | Detail laporan | Login |
+| `/users` | Daftar pengguna | Login |
+| `/profile` | Profil, foto, kata sandi | Login |

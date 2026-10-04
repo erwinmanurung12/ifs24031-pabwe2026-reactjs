@@ -1,24 +1,16 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
 import Avatar from "./Avatar";
 
-describe("Avatar", () => {
-  it("menampilkan inisial bila tidak ada foto", () => {
-    render(<Avatar name="  budi" />);
-    expect(screen.getByText("B")).toBeInTheDocument();
-  });
+it("menampilkan foto bila tersedia", () => {
+  render(<Avatar name="Budi Santoso" photo="uploads/b.png" />);
+  expect(screen.getByRole("img", { name: "Foto Budi Santoso" })).toHaveAttribute(
+    "src",
+    "https://open-api.delcom.org/uploads/b.png",
+  );
+});
 
-  it("menampilkan tanda tanya bila nama kosong", () => {
-    render(<Avatar />);
-    expect(screen.getByText("?")).toBeInTheDocument();
-  });
-
-  it("menampilkan foto dan fallback ke inisial saat gagal dimuat", () => {
-    const { container } = render(<Avatar name="Ani" photo="img/a.png" />);
-    const img = container.querySelector("img");
-    expect(img).toHaveAttribute("src", "https://open-api.delcom.org/img/a.png");
-    fireEvent.error(img);
-    expect(container.querySelector("img")).toBeNull();
-    expect(screen.getByText("A")).toBeInTheDocument();
-  });
+it("menampilkan inisial bila tanpa foto", () => {
+  render(<Avatar name="Budi Santoso" photo={null} />);
+  expect(screen.getByLabelText("Inisial Budi Santoso")).toHaveTextContent("BS");
 });

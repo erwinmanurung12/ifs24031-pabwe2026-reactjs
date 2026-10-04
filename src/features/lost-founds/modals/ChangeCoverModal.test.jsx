@@ -1,71 +1,84 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-vi.mock("../api/lostFoundApi");
-vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
-}));
-
-import { postLostFoundCover } from "../api/lostFoundApi";
 import ChangeCoverModal from "./ChangeCoverModal";
+import { postLostFoundCover } from "../api/lostFoundApi";
+import { showWarningDialog } from "../../../helpers/toolsHelper";
 import { renderWithProviders } from "../../../test-utils";
 
-const image = () => new File(["x"], "a.png", { type: "image/png" });
+vi.mock("../api/lostFoundApi");
+vi.mock("../../../helpers/toolsHelper", async (original) => ({
+  ...(await original()),
+  showErrorDialog: vi.fn(),
+  showSuccessDialog: vi.fn().mockResolvedValue({}),
+  showWarningDialog: vi.fn(),
+}));
+
+const image = new File(["x"], "foto.png", { type: "image/png" });
+
+const setup = (cover = null) => {
+  const handlers = { onClose: vi.fn(), onSaved: vi.fn() };
+  const view = renderWithProviders(<ChangeCoverModal item={{ id: 2, cover }} {...handlers} />);
+  return { ...handlers, ...view };
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  URL.createObjectURL = vi.fn(() => "blob:pratinjau");
+  URL.revokeObjectURL = vi.fn();
+});
 
 describe("ChangeCoverModal", () => {
-  beforeEach(() => vi.clearAllMocks());
+  it("tanpa cover menampilkan placeholder dan tombol unggah nonaktif", () => {
+    setup();
+    expect(screen.getByText("Belum ada gambar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unggah cover" })).toBeDisabled();
+  });
 
-  it("meminta gambar bila belum dipilih", async () => {
-    renderWithProviders(<ChangeCoverModal lostFoundId={1} onClose={() => {}} />);
+  it("menampilkan cover yang sudah ada", () => {
+    setup("uploads/lama.png");
+    expect(screen.getByRole("img", { name: "Pratinjau cover" })).toHaveAttribute(
+      "src",
+      "https://open-api.delcom.org/uploads/lama.png",
+    );
+  });
+
+  it("menolak berkas non-gambar", () => {
+    setup();
+    fireEvent.change(screen.getByLabelText("Berkas gambar"), {
+      target: { files: [new File(["x"], "a.pdf", { type: "application/pdf" })] },
+    });
+    expect(showWarningDialog).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Unggah cover" })).toBeDisabled();
+  });
+
+  it("memilih gambar menampilkan pratinjau, lalu mengunggah", async () => {
+    postLostFoundCover.mockResolvedValue({});
+    const { onClose, onSaved } = setup();
+    await userEvent.upload(screen.getByLabelText("Berkas gambar"), image);
+    expect(screen.getByRole("img", { name: "Pratinjau cover" })).toHaveAttribute("src", "blob:pratinjau");
     await userEvent.click(screen.getByRole("button", { name: "Unggah cover" }));
-    expect(screen.getByText("Pilih gambar terlebih dahulu")).toBeInTheDocument();
-    expect(postLostFoundCover).not.toHaveBeenCalled();
-  });
-
-  it("menolak berkas non-gambar dan membersihkan pilihan", () => {
-    renderWithProviders(<ChangeCoverModal lostFoundId={1} onClose={() => {}} />);
-    const input = screen.getByLabelText("Pilih gambar");
-    fireEvent.change(input, { target: { files: [new File(["x"], "a.txt", { type: "text/plain" })] } });
-    expect(screen.getByText("Berkas harus berupa gambar")).toBeInTheDocument();
-    expect(screen.queryByAltText("Pratinjau cover baru")).not.toBeInTheDocument();
-  });
-
-  it("menampilkan pratinjau, lalu mengosongkannya bila pilihan dibatalkan", async () => {
-    renderWithProviders(<ChangeCoverModal lostFoundId={1} onClose={() => {}} />);
-    const input = screen.getByLabelText("Pilih gambar");
-    fireEvent.change(input, { target: { files: [image()] } });
-    expect(await screen.findByAltText("Pratinjau cover baru")).toBeInTheDocument();
-    fireEvent.change(input, { target: { files: [] } });
-    await waitFor(() => expect(screen.queryByAltText("Pratinjau cover baru")).not.toBeInTheDocument());
-  });
-
-  it("mengunggah cover dan menutup modal", async () => {
-    postLostFoundCover.mockResolvedValue({ status: "success" });
-    const onClose = vi.fn();
-    const file = image();
-    renderWithProviders(<ChangeCoverModal lostFoundId={9} onClose={onClose} />);
-    fireEvent.change(screen.getByLabelText("Pilih gambar"), { target: { files: [file] } });
-    await userEvent.click(screen.getByRole("button", { name: "Unggah cover" }));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(postLostFoundCover).toHaveBeenCalledWith({ id: 9, file });
-  });
-
-  it("gagal unggah: modal tetap terbuka; tombol Batal dan status unggah", async () => {
-    postLostFoundCover.mockResolvedValue({ status: "fail", message: "Gagal" });
-    const onClose = vi.fn();
-    renderWithProviders(<ChangeCoverModal lostFoundId={9} onClose={onClose} />);
-    fireEvent.change(screen.getByLabelText("Pilih gambar"), { target: { files: [image()] } });
-    await userEvent.click(screen.getByRole("button", { name: "Unggah cover" }));
-    await waitFor(() => expect(postLostFoundCover).toHaveBeenCalled());
-    expect(onClose).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Batal" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(postLostFoundCover).toHaveBeenCalledWith(2, image);
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("menonaktifkan tombol saat mengunggah", () => {
-    renderWithProviders(<ChangeCoverModal lostFoundId={1} onClose={() => {}} />, { preloadedState: { isLostFoundChangeCover: true } });
-    expect(screen.getByRole("button", { name: "Mengunggah..." })).toBeDisabled();
+  it("membatalkan pilihan berkas mengembalikan keadaan awal", async () => {
+    setup();
+    const input = screen.getByLabelText("Berkas gambar");
+    await userEvent.upload(input, image);
+    fireEvent.change(input, { target: { files: [] } });
+    expect(screen.getByRole("button", { name: "Unggah cover" })).toBeDisabled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:pratinjau");
+  });
+
+  it("modal tetap terbuka bila upload gagal", async () => {
+    postLostFoundCover.mockRejectedValue(new Error("gagal"));
+    const { onClose, onSaved } = setup();
+    await userEvent.upload(screen.getByLabelText("Berkas gambar"), image);
+    await userEvent.click(screen.getByRole("button", { name: "Unggah cover" }));
+    await waitFor(() => expect(postLostFoundCover).toHaveBeenCalled());
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

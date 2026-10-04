@@ -1,71 +1,52 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asyncLogin, asyncLogout, asyncRegister } from "./action";
+import { isAuthLogin, isAuthLogout, isAuthRegister } from "./reducer";
+import { postLogin, postRegister } from "../api/authApi";
+import { getAccessToken, putAccessToken } from "../../../helpers/apiHelper";
+import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
 
 vi.mock("../api/authApi");
 vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
+  showErrorDialog: vi.fn(),
+  showSuccessDialog: vi.fn().mockResolvedValue({}),
 }));
 
-import { postLogin, postRegister } from "../api/authApi";
-import { showErrorDialog, showSuccessDialog } from "../../../helpers/toolsHelper";
-import {
-  ActionType,
-  asyncSetIsAuthLogin,
-  asyncSetIsAuthRegister,
-  asyncSetIsAuthLogout,
-  setIsAuthLoginActionCreator,
-  setIsAuthRegisterActionCreator,
-  setIsAuthLogoutActionCreator,
-} from "./action";
+const dispatch = vi.fn();
+beforeEach(() => vi.clearAllMocks());
 
-describe("auth action", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("action creators", () => {
-    expect(setIsAuthLoginActionCreator(true)).toEqual({ type: ActionType.SET_IS_AUTH_LOGIN, payload: { status: true } });
-    expect(setIsAuthRegisterActionCreator(true)).toEqual({ type: ActionType.SET_IS_AUTH_REGISTER, payload: { status: true } });
-    expect(setIsAuthLogoutActionCreator(true)).toEqual({ type: ActionType.SET_IS_AUTH_LOGOUT, payload: { status: true } });
+describe("asyncLogin", () => {
+  it("menyimpan token dan dispatch isAuthLogin", async () => {
+    postLogin.mockResolvedValue({ data: { token: "T" } });
+    expect(await asyncLogin({ email: "e" })(dispatch)).toBe(true);
+    expect(getAccessToken()).toBe("T");
+    expect(dispatch).toHaveBeenCalledWith(isAuthLogin("T"));
   });
 
-  it("login berhasil menyimpan token", async () => {
-    postLogin.mockResolvedValue({ status: "success", data: { token: "tok" } });
-    const dispatch = vi.fn();
-    expect(await asyncSetIsAuthLogin({ email: "a", password: "b" })(dispatch)).toBe(true);
-    expect(localStorage.getItem("accessToken")).toBe("tok");
-    expect(dispatch).toHaveBeenCalledWith(setIsAuthLoginActionCreator(true));
+  it("menampilkan dialog error saat gagal", async () => {
+    postLogin.mockRejectedValue(new Error("salah"));
+    expect(await asyncLogin({})(dispatch)).toBe(false);
+    expect(showErrorDialog).toHaveBeenCalledWith("salah");
   });
+});
 
-  it("login gagal menampilkan dialog error", async () => {
-    postLogin.mockResolvedValue({ status: "fail", message: "Salah" });
-    const dispatch = vi.fn();
-    expect(await asyncSetIsAuthLogin({ email: "a", password: "b" })(dispatch)).toBe(false);
-    expect(showErrorDialog).toHaveBeenCalledWith("Salah");
-    expect(dispatch).not.toHaveBeenCalled();
-  });
-
-  it("register berhasil", async () => {
-    postRegister.mockResolvedValue({ status: "success" });
-    const dispatch = vi.fn();
-    expect(await asyncSetIsAuthRegister({ name: "n", email: "e", password: "p" })(dispatch)).toBe(true);
+describe("asyncRegister", () => {
+  it("sukses -> dispatch isAuthRegister + dialog sukses", async () => {
+    postRegister.mockResolvedValue({});
+    expect(await asyncRegister({})(dispatch)).toBe(true);
+    expect(dispatch).toHaveBeenCalledWith(isAuthRegister());
     expect(showSuccessDialog).toHaveBeenCalled();
-    expect(dispatch).toHaveBeenNthCalledWith(1, setIsAuthRegisterActionCreator(true));
-    expect(dispatch).toHaveBeenNthCalledWith(2, setIsAuthRegisterActionCreator(false));
   });
 
-  it("register gagal", async () => {
-    postRegister.mockResolvedValue({ status: "fail", message: "Email dipakai" });
-    const dispatch = vi.fn();
-    expect(await asyncSetIsAuthRegister({})(dispatch)).toBe(false);
-    expect(showErrorDialog).toHaveBeenCalledWith("Email dipakai");
+  it("gagal -> dialog error", async () => {
+    postRegister.mockRejectedValue(new Error("email dipakai"));
+    expect(await asyncRegister({})(dispatch)).toBe(false);
+    expect(showErrorDialog).toHaveBeenCalledWith("email dipakai");
   });
+});
 
-  it("logout membersihkan sesi", async () => {
-    localStorage.setItem("accessToken", "tok");
-    const dispatch = vi.fn();
-    await asyncSetIsAuthLogout()(dispatch);
-    expect(localStorage.getItem("accessToken")).toBeNull();
-    expect(dispatch).toHaveBeenCalledWith(setIsAuthLoginActionCreator(false));
-    expect(dispatch).toHaveBeenCalledWith(setIsAuthLogoutActionCreator(true));
-    expect(dispatch).toHaveBeenCalledTimes(4);
-  });
+it("asyncLogout menghapus token dan dispatch isAuthLogout", () => {
+  putAccessToken("x");
+  asyncLogout()(dispatch);
+  expect(getAccessToken()).toBeNull();
+  expect(dispatch).toHaveBeenCalledWith(isAuthLogout());
 });

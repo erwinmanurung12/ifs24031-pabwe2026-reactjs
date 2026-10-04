@@ -1,136 +1,138 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Avatar from "../../../components/Avatar";
-import FormField from "../../../components/FormField";
 import useInput from "../../../hooks/useInput";
-import useDocumentTitle from "../../../hooks/useDocumentTitle";
-import { btnPrimary } from "../../../helpers/classHelper";
+import { showWarningDialog } from "../../../helpers/toolsHelper";
 import {
   asyncChangeProfile,
-  asyncChangeProfilePhoto,
   asyncChangeProfilePassword,
+  asyncChangeProfilePhoto,
 } from "../states/action";
 
+const FIELD =
+  "w-full rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100";
+
+const Card = ({ title, children }) => (
+  <section className="rounded-[1.75rem] bg-white p-6 ring-1 ring-stone-200">
+    <h3 className="mb-4 text-lg font-bold text-indigo-950">{title}</h3>
+    {children}
+  </section>
+);
+
+const Field = ({ id, label, error, ...props }) => (
+  <div>
+    <label htmlFor={id} className="mb-1.5 block text-sm font-bold text-stone-700">{label}</label>
+    <input id={id} className={FIELD} {...props} />
+    {error && <p className="mt-1.5 text-sm font-medium text-rose-600">{error}</p>}
+  </div>
+);
+
+const SubmitButton = ({ busy, children }) => (
+  <button type="submit" disabled={busy} className="rounded-2xl bg-indigo-950 px-5 py-3 font-bold text-amber-300 hover:bg-indigo-900 disabled:opacity-60">
+    {children}
+  </button>
+);
+
 export default function ProfilePage() {
-  useDocumentTitle("Profil Saya");
   const dispatch = useDispatch();
-  const profile = useSelector((state) => state.profile);
-  const isChangeProfile = useSelector((state) => state.isChangeProfile);
-  const isChangePhoto = useSelector((state) => state.isChangeProfilePhoto);
-  const isChangePassword = useSelector((state) => state.isChangeProfilePassword);
+  const { profile, isChangeProfile, isChangeProfilePhoto, isChangeProfilePassword } = useSelector(
+    (state) => state.users,
+  );
 
-  const [name, onNameChange] = useInput(profile.name);
-  const [email, onEmailChange] = useInput(profile.email);
-  const [profileErrors, setProfileErrors] = useState({});
-
+  const name = useInput(profile.name);
+  const email = useInput(profile.email);
+  const current = useInput("");
+  const next = useInput("");
+  const confirm = useInput("");
   const [photo, setPhoto] = useState(null);
-  const [photoError, setPhotoError] = useState("");
-
-  const [password, onPasswordChange, setPassword] = useInput("");
-  const [newPassword, onNewPasswordChange, setNewPassword] = useInput("");
   const [passwordErrors, setPasswordErrors] = useState({});
 
-  function handleProfileSubmit(event) {
+  const saveProfile = (event) => {
     event.preventDefault();
-    const errors = {};
-    if (!name.trim()) errors.name = "Nama wajib diisi";
-    if (!email.trim()) errors.email = "Email wajib diisi";
-    setProfileErrors(errors);
-    if (Object.keys(errors).length) return;
-    dispatch(asyncChangeProfile({ name: name.trim(), email: email.trim() }));
-  }
+    dispatch(asyncChangeProfile({ name: name.value.trim(), email: email.value.trim() }));
+  };
 
-  function handlePhotoChange(event) {
-    const file = event.target.files[0] ?? null;
-    setPhoto(file);
-    setPhotoError("");
-  }
-
-  function handlePhotoSubmit(event) {
-    event.preventDefault();
-    if (!photo) {
-      setPhotoError("Pilih foto terlebih dahulu");
+  const pickPhoto = (event) => {
+    const chosen = event.target.files[0];
+    if (chosen && !chosen.type.startsWith("image/")) {
+      showWarningDialog("Berkas harus berupa gambar.");
       return;
     }
-    dispatch(asyncChangeProfilePhoto(photo));
-  }
+    setPhoto(chosen ?? null);
+  };
 
-  async function handlePasswordSubmit(event) {
+  const savePhoto = async (event) => {
     event.preventDefault();
-    const errors = {};
-    if (!password) errors.password = "Kata sandi saat ini wajib diisi";
-    if (newPassword.length < 6) errors.newPassword = "Kata sandi baru minimal 6 karakter";
-    setPasswordErrors(errors);
-    if (Object.keys(errors).length) return;
-    const success = await dispatch(asyncChangeProfilePassword({ password, newPassword }));
-    if (success) {
-      setPassword("");
-      setNewPassword("");
+    if (await dispatch(asyncChangeProfilePhoto(photo))) setPhoto(null);
+  };
+
+  const savePassword = async (event) => {
+    event.preventDefault();
+    const found = {};
+    if (!current.value) found.current = "Kata sandi saat ini wajib diisi";
+    if (next.value.length < 6) found.next = "Kata sandi baru minimal 6 karakter";
+    if (confirm.value !== next.value) found.confirm = "Konfirmasi tidak sama";
+    setPasswordErrors(found);
+    if (Object.keys(found).length > 0) return;
+
+    const changed = await dispatch(
+      asyncChangeProfilePassword({ password: current.value, new_password: next.value }),
+    );
+    if (changed) {
+      current.reset();
+      next.reset();
+      confirm.reset();
     }
-  }
+  };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-extrabold text-slate-900 sm:text-3xl">Profil saya</h1>
+    <div className="space-y-6">
+      <div className="flex items-center gap-5 rounded-[2rem] bg-indigo-950 p-6 text-white">
+        <Avatar name={profile.name} photo={profile.photo} className="size-20 text-2xl" />
+        <div className="min-w-0">
+          <h2 className="truncate text-2xl font-extrabold">{profile.name}</h2>
+          <p className="truncate text-indigo-200">{profile.email}</p>
+        </div>
+      </div>
 
-      <section aria-labelledby="photo-heading" className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 id="photo-heading" className="text-lg font-bold text-slate-900">
-          Foto profil
-        </h2>
-        <form onSubmit={handlePhotoSubmit} noValidate className="mt-4 space-y-4">
-          <div className="flex items-center gap-4">
-            <Avatar name={profile.name} photo={profile.photo} className="h-16 w-16" />
-            <div className="flex-1">
-              <FormField id="photo" label="Pilih foto" type="file" accept="image/*" onChange={handlePhotoChange} error={photoError} />
-            </div>
-          </div>
-          <button type="submit" disabled={isChangePhoto} className={btnPrimary}>
-            Unggah foto
-          </button>
-        </form>
-      </section>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card title="Data diri">
+          <form onSubmit={saveProfile} className="space-y-4">
+            <Field id="profile-name" label="Nama" value={name.value} onChange={name.onChange} />
+            <Field id="profile-email" label="Email" type="email" value={email.value} onChange={email.onChange} />
+            <SubmitButton busy={isChangeProfile}>Simpan data diri</SubmitButton>
+          </form>
+        </Card>
 
-      <section aria-labelledby="info-heading" className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 id="info-heading" className="text-lg font-bold text-slate-900">
-          Informasi akun
-        </h2>
-        <form onSubmit={handleProfileSubmit} noValidate className="mt-4 space-y-4">
-          <FormField id="profile-name" label="Nama lengkap" autoComplete="name" value={name} onChange={onNameChange} error={profileErrors.name} />
-          <FormField id="profile-email" label="Email" type="email" autoComplete="email" value={email} onChange={onEmailChange} error={profileErrors.email} />
-          <button type="submit" disabled={isChangeProfile} className={btnPrimary}>
-            Simpan perubahan
-          </button>
-        </form>
-      </section>
+        <Card title="Foto profil">
+          <form onSubmit={savePhoto} className="space-y-4">
+            <label htmlFor="profile-photo" className="block text-sm font-bold text-stone-700">Pilih foto</label>
+            <input
+              id="profile-photo"
+              type="file"
+              accept="image/*"
+              onChange={pickPhoto}
+              className="w-full rounded-2xl border border-dashed border-stone-300 p-3 text-sm"
+            />
+            <button type="submit" disabled={!photo || isChangeProfilePhoto} className="rounded-2xl bg-indigo-950 px-5 py-3 font-bold text-amber-300 hover:bg-indigo-900 disabled:opacity-50">
+              Unggah foto
+            </button>
+          </form>
+        </Card>
 
-      <section aria-labelledby="password-heading" className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 id="password-heading" className="text-lg font-bold text-slate-900">
-          Ubah kata sandi
-        </h2>
-        <form onSubmit={handlePasswordSubmit} noValidate className="mt-4 space-y-4">
-          <FormField
-            id="current-password"
-            label="Kata sandi saat ini"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={onPasswordChange}
-            error={passwordErrors.password}
-          />
-          <FormField
-            id="new-password"
-            label="Kata sandi baru"
-            type="password"
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={onNewPasswordChange}
-            error={passwordErrors.newPassword}
-          />
-          <button type="submit" disabled={isChangePassword} className={btnPrimary}>
-            Ubah kata sandi
-          </button>
-        </form>
-      </section>
+        <div className="lg:col-span-2">
+          <Card title="Ganti kata sandi">
+            <form onSubmit={savePassword} noValidate className="grid gap-4 md:grid-cols-3">
+              <Field id="pw-current" label="Kata sandi saat ini" type="password" value={current.value} onChange={current.onChange} error={passwordErrors.current} />
+              <Field id="pw-new" label="Kata sandi baru" type="password" value={next.value} onChange={next.onChange} error={passwordErrors.next} />
+              <Field id="pw-confirm" label="Ulangi kata sandi baru" type="password" value={confirm.value} onChange={confirm.onChange} error={passwordErrors.confirm} />
+              <div className="md:col-span-3">
+                <SubmitButton busy={isChangeProfilePassword}>Ubah kata sandi</SubmitButton>
+              </div>
+            </form>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

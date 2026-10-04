@@ -1,47 +1,87 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { IconMenu2, IconLogout } from "@tabler/icons-react";
+import { IconChevronDown, IconLogout, IconMenu2, IconUser } from "@tabler/icons-react";
 import Avatar from "../../../components/Avatar";
-import { asyncSetIsAuthLogout } from "../../auth/states/action";
+import { asyncLogout } from "../../auth/states/action";
 
-export default function NavbarComponent({ onToggleSidebar, sidebarOpen }) {
+export default function NavbarComponent({ onOpenMenu }) {
   const dispatch = useDispatch();
-  const profile = useSelector((state) => state.profile);
+  const navigate = useNavigate();
+  const profile = useSelector((state) => state.users.profile);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const signOut = () => {
+    navigate("/auth/login");
+    dispatch(asyncLogout());
+  };
+
+  if (!profile) return null; // sesi sedang berakhir
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-      <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-stone-200 bg-stone-100/85 px-4 py-3 backdrop-blur sm:px-8">
+      <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={onToggleSidebar}
-          aria-label="Buka menu navigasi"
-          aria-expanded={sidebarOpen}
-          aria-controls="sidebar-nav"
-          className="rounded-lg p-2 text-slate-800 hover:bg-slate-100 lg:hidden"
+          aria-label="Buka menu"
+          onClick={onOpenMenu}
+          className="rounded-xl bg-white p-2 text-indigo-950 ring-1 ring-stone-200 lg:hidden"
         >
-          <IconMenu2 size={24} aria-hidden="true" />
+          <IconMenu2 size={20} />
         </button>
-        <Link to="/" className="flex items-center gap-2.5 text-lg font-extrabold text-slate-900">
-          <img src="/logo.svg" alt="" width="32" height="32" />
-          <span>Lost &amp; Founds</span>
-        </Link>
-        <div className="ml-auto flex items-center gap-3">
-          <Link to="/profile" className="flex items-center gap-2.5 rounded-lg p-1 hover:bg-slate-100">
-            <Avatar name={profile?.name} photo={profile?.photo} />
-            <span className="hidden max-w-40 truncate text-sm font-semibold text-slate-800 sm:inline">
-              {profile?.name}
-            </span>
-            <span className="sr-only sm:hidden">Profil saya</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => dispatch(asyncSetIsAuthLogout())}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
-          >
-            <IconLogout size={18} aria-hidden="true" />
-            <span>Keluar</span>
-          </button>
+        <div>
+          <h1 className="text-base font-extrabold leading-tight text-indigo-950 sm:text-lg">
+            Pusat Lost &amp; Found
+          </h1>
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+            <span className="size-2 rounded-full bg-emerald-500" />
+            Sesi aktif
+          </p>
         </div>
+      </div>
+
+      <div className="relative">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={dropdownOpen}
+          onClick={() => setDropdownOpen((value) => !value)}
+          className="flex items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 ring-1 ring-stone-200 transition hover:ring-indigo-300"
+        >
+          <Avatar name={profile.name} photo={profile.photo} className="size-8 text-xs" />
+          <span className="hidden max-w-32 truncate text-sm font-bold text-indigo-950 sm:block">
+            {profile.name}
+          </span>
+          <IconChevronDown size={16} className="text-stone-600" />
+        </button>
+
+        {dropdownOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 mt-2 w-60 rounded-3xl bg-white p-2 shadow-xl ring-1 ring-stone-200"
+          >
+            <div className="px-3 py-2">
+              <p className="truncate text-sm font-bold text-indigo-950">{profile.name}</p>
+              <p className="truncate text-xs text-stone-600">{profile.email}</p>
+            </div>
+            <Link
+              role="menuitem"
+              to="/profile"
+              onClick={() => setDropdownOpen(false)}
+              className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-100"
+            >
+              <IconUser size={18} /> Profil saya
+            </Link>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={signOut}
+              className="flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+            >
+              <IconLogout size={18} /> Keluar
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

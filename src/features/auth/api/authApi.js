@@ -1,13 +1,4 @@
-import { fetchApi } from "../../../helpers/apiHelper";
+import { callApi } from "../../../helpers/apiHelper";
 
-export function postLogin({ email, password }) {
-  return fetchApi("/auth/login", { method: "POST", body: { email, password }, auth: false });
-}
-
-export function postRegister({ name, email, password }) {
-  return fetchApi("/auth/register", {
-    method: "POST",
-    body: { name, email, password },
-    auth: false,
-  });
-}
+export const postRegister = (payload) => callApi("/auth/register", { method: "POST", body: payload });
+export const postLogin = (payload) => callApi("/auth/login", { method: "POST", body: payload });

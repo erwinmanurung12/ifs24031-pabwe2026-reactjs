@@ -1,61 +1,64 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
-vi.mock("../api/lostFoundApi");
-vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
-}));
-
-import { putLostFound } from "../api/lostFoundApi";
 import ChangeModal from "./ChangeModal";
+import { putLostFound } from "../api/lostFoundApi";
 import { renderWithProviders } from "../../../test-utils";
 
-const item = { id: 5, title: "Dompet", description: "Cokelat", status: "lost", is_completed: 0 };
+vi.mock("../api/lostFoundApi");
+vi.mock("../../../helpers/toolsHelper", async (original) => ({
+  ...(await original()),
+  showErrorDialog: vi.fn(),
+  showSuccessDialog: vi.fn().mockResolvedValue({}),
+}));
+
+const item = { id: 4, title: "Tas", description: "Tas ransel warna biru", status: "found", is_completed: 0 };
+
+const setup = () => {
+  const handlers = { onClose: vi.fn(), onSaved: vi.fn() };
+  renderWithProviders(<ChangeModal item={item} {...handlers} />);
+  return handlers;
+};
+
+beforeEach(() => vi.clearAllMocks());
 
 describe("ChangeModal", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("menampilkan nilai awal dan memvalidasi", async () => {
-    renderWithProviders(<ChangeModal lostFound={item} onClose={() => {}} />);
-    expect(screen.getByLabelText("Judul")).toHaveValue("Dompet");
-    expect(screen.getByLabelText("Tandai laporan sudah selesai")).not.toBeChecked();
-    await userEvent.clear(screen.getByLabelText("Judul"));
-    await userEvent.clear(screen.getByLabelText("Deskripsi"));
-    await userEvent.click(screen.getByRole("button", { name: "Simpan perubahan" }));
-    expect(screen.getByText("Judul wajib diisi")).toBeInTheDocument();
-    expect(screen.getByText("Deskripsi wajib diisi")).toBeInTheDocument();
-    expect(putLostFound).not.toHaveBeenCalled();
+  it("terisi data laporan dan memiliki toggle selesai", () => {
+    setup();
+    expect(screen.getByLabelText("Judul")).toHaveValue("Tas");
+    expect(screen.getByLabelText("Deskripsi")).toHaveValue("Tas ransel warna biru");
+    expect(screen.getByRole("button", { name: "Barang Ditemukan" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/Tandai selesai/)).not.toBeChecked();
   });
 
   it("menyimpan perubahan termasuk status selesai", async () => {
-    putLostFound.mockResolvedValue({ status: "success" });
-    const onClose = vi.fn();
-    renderWithProviders(<ChangeModal lostFound={item} onClose={onClose} />);
-    await userEvent.selectOptions(screen.getByLabelText("Jenis laporan"), "found");
-    await userEvent.type(screen.getByLabelText("Judul"), " baru");
-    await userEvent.click(screen.getByLabelText("Tandai laporan sudah selesai"));
+    putLostFound.mockResolvedValue({});
+    const { onClose, onSaved } = setup();
+    await userEvent.clear(screen.getByLabelText("Judul"));
+    await userEvent.type(screen.getByLabelText("Judul"), "Tas baru");
+    await userEvent.click(screen.getByLabelText(/Tandai selesai/));
     await userEvent.click(screen.getByRole("button", { name: "Simpan perubahan" }));
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(putLostFound).toHaveBeenCalledWith({ id: 5, title: "Dompet baru", description: "Cokelat", status: "found", isCompleted: true });
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(putLostFound).toHaveBeenCalledWith(4, {
+      title: "Tas baru", description: "Tas ransel warna biru", status: "found", is_completed: 1,
+    });
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it("menandai selesai dari data awal dan tetap terbuka saat gagal", async () => {
-    putLostFound.mockResolvedValue({ status: "fail", message: "Gagal" });
-    const onClose = vi.fn();
-    renderWithProviders(<ChangeModal lostFound={{ ...item, is_completed: 1 }} onClose={onClose} />);
-    expect(screen.getByLabelText("Tandai laporan sudah selesai")).toBeChecked();
+  it("mengirim is_completed 0 bila toggle tidak dicentang", async () => {
+    putLostFound.mockResolvedValue({});
+    setup();
     await userEvent.click(screen.getByRole("button", { name: "Simpan perubahan" }));
     await waitFor(() => expect(putLostFound).toHaveBeenCalled());
-    expect(onClose).not.toHaveBeenCalled();
+    expect(putLostFound.mock.calls[0][1].is_completed).toBe(0);
   });
 
-  it("tombol Batal dan status menyimpan", async () => {
-    const onClose = vi.fn();
-    renderWithProviders(<ChangeModal lostFound={item} onClose={onClose} />, { preloadedState: { isLostFoundChange: true } });
-    expect(screen.getByRole("button", { name: "Menyimpan..." })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: "Batal" }));
-    expect(onClose).toHaveBeenCalled();
+  it("tidak menutup modal saat API gagal", async () => {
+    putLostFound.mockRejectedValue(new Error("gagal"));
+    const { onClose, onSaved } = setup();
+    await userEvent.click(screen.getByRole("button", { name: "Simpan perubahan" }));
+    await waitFor(() => expect(putLostFound).toHaveBeenCalled());
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

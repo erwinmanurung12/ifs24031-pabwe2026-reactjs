@@ -1,22 +1,45 @@
-import { ActionType } from "./action";
+import { createSlice } from "@reduxjs/toolkit";
+import { isAuthLogout } from "../../auth/states/reducer";
 
-export function usersReducer(state = [], action = {}) {
-  return action.type === ActionType.SET_USERS ? action.payload.users : state;
-}
+const initialState = {
+  users: [],
+  user: null,
+  profile: null,
+  isProfile: false,
+  isChangeProfile: false,
+  isChangeProfilePhoto: false,
+  isChangeProfilePassword: false,
+};
 
-export function userReducer(state = null, action = {}) {
-  return action.type === ActionType.SET_USER ? action.payload.user : state;
-}
+// Setiap reducer cukup menimpa satu kunci state dengan payload.
+const assign = (key) => (state, { payload }) => {
+  state[key] = payload;
+};
 
-export function profileReducer(state = null, action = {}) {
-  return action.type === ActionType.SET_PROFILE ? action.payload.profile : state;
-}
+const usersSlice = createSlice({
+  name: "users",
+  initialState,
+  reducers: {
+    users: assign("users"),
+    user: assign("user"),
+    profile: assign("profile"),
+    isProfile: assign("isProfile"),
+    isChangeProfile: assign("isChangeProfile"),
+    isChangeProfilePhoto: assign("isChangeProfilePhoto"),
+    isChangeProfilePassword: assign("isChangeProfilePassword"),
+  },
+  extraReducers: (builder) => {
+    builder.addCase(isAuthLogout, () => initialState);
+  },
+});
 
-function flagReducer(type) {
-  return (state = false, action = {}) => (action.type === type ? action.payload.status : state);
-}
-
-export const isProfileReducer = flagReducer(ActionType.SET_IS_PROFILE);
-export const isChangeProfileReducer = flagReducer(ActionType.SET_IS_CHANGE_PROFILE);
-export const isChangeProfilePhotoReducer = flagReducer(ActionType.SET_IS_CHANGE_PROFILE_PHOTO);
-export const isChangeProfilePasswordReducer = flagReducer(ActionType.SET_IS_CHANGE_PROFILE_PASSWORD);
+export const {
+  users,
+  user,
+  profile,
+  isProfile,
+  isChangeProfile,
+  isChangeProfilePhoto,
+  isChangeProfilePassword,
+} = usersSlice.actions;
+export default usersSlice.reducer;

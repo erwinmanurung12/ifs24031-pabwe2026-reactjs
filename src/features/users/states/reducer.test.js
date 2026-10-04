@@ -1,31 +1,43 @@
-import { describe, it, expect } from "vitest";
-import * as reducers from "./reducer";
-import * as actions from "./action";
+import { describe, expect, it } from "vitest";
+import reducer, {
+  isChangeProfile,
+  isChangeProfilePassword,
+  isChangeProfilePhoto,
+  isProfile,
+  profile,
+  user,
+  users,
+} from "./reducer";
+import { isAuthLogout } from "../../auth/states/reducer";
 
-describe("users reducers", () => {
-  it("users, user, profile", () => {
-    expect(reducers.usersReducer(undefined)).toEqual([]);
-    expect(reducers.usersReducer([], actions.setUsersActionCreator([1]))).toEqual([1]);
-    expect(reducers.usersReducer([2], { type: "x" })).toEqual([2]);
+const initial = reducer(undefined, { type: "@@init" });
 
-    expect(reducers.userReducer(undefined)).toBeNull();
-    expect(reducers.userReducer(null, actions.setUserActionCreator({ id: 1 }))).toEqual({ id: 1 });
-    expect(reducers.userReducer({ id: 2 }, { type: "x" })).toEqual({ id: 2 });
-
-    expect(reducers.profileReducer(undefined)).toBeNull();
-    expect(reducers.profileReducer(null, actions.setProfileActionCreator({ id: 1 }))).toEqual({ id: 1 });
-    expect(reducers.profileReducer({ id: 2 }, { type: "x" })).toEqual({ id: 2 });
+describe("users reducer", () => {
+  it("memiliki state awal lengkap", () => {
+    expect(initial).toEqual({
+      users: [],
+      user: null,
+      profile: null,
+      isProfile: false,
+      isChangeProfile: false,
+      isChangeProfilePhoto: false,
+      isChangeProfilePassword: false,
+    });
   });
 
   it.each([
-    ["isProfileReducer", actions.setIsProfileActionCreator],
-    ["isChangeProfileReducer", actions.setIsChangeProfileActionCreator],
-    ["isChangeProfilePhotoReducer", actions.setIsChangeProfilePhotoActionCreator],
-    ["isChangeProfilePasswordReducer", actions.setIsChangeProfilePasswordActionCreator],
-  ])("%s", (name, creator) => {
-    const reducer = reducers[name];
-    expect(reducer(undefined)).toBe(false);
-    expect(reducer(false, creator(true))).toBe(true);
-    expect(reducer(true, { type: "x" })).toBe(true);
+    ["users", users, [{ id: 1 }]],
+    ["user", user, { id: 1 }],
+    ["profile", profile, { id: 2 }],
+    ["isProfile", isProfile, true],
+    ["isChangeProfile", isChangeProfile, true],
+    ["isChangeProfilePhoto", isChangeProfilePhoto, true],
+    ["isChangeProfilePassword", isChangeProfilePassword, true],
+  ])("action %s mengisi state", (key, creator, payload) => {
+    expect(reducer(initial, creator(payload))[key]).toEqual(payload);
+  });
+
+  it("kembali ke state awal saat logout", () => {
+    expect(reducer({ ...initial, profile: { id: 1 } }, isAuthLogout())).toEqual(initial);
   });
 });

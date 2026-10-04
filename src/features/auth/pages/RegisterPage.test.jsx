@@ -1,61 +1,59 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Routes, Route } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
+import RegisterPage from "./RegisterPage";
+import { postRegister } from "../api/authApi";
+import { renderWithProviders } from "../../../test-utils";
 
 vi.mock("../api/authApi");
 vi.mock("../../../helpers/toolsHelper", () => ({
-  showErrorDialog: vi.fn(async () => {}),
-  showSuccessDialog: vi.fn(async () => {}),
+  showErrorDialog: vi.fn(),
+  showSuccessDialog: vi.fn().mockResolvedValue({}),
 }));
 
-import { postRegister } from "../api/authApi";
-import RegisterPage from "./RegisterPage";
-import { renderWithProviders } from "../../../test-utils";
+const tree = (
+  <Routes>
+    <Route path="/auth/register" element={<RegisterPage />} />
+    <Route path="/auth/login" element={<p>Halaman login</p>} />
+  </Routes>
+);
 
-function ui() {
-  return (
-    <Routes>
-      <Route path="/auth/register" element={<RegisterPage />} />
-      <Route path="/auth/login" element={<p>Halaman login</p>} />
-    </Routes>
-  );
-}
+const fill = async (name, email, pass, confirm) => {
+  await userEvent.type(screen.getByLabelText("Nama lengkap"), name);
+  await userEvent.type(screen.getByLabelText("Email"), email);
+  await userEvent.type(screen.getByLabelText("Kata sandi"), pass);
+  await userEvent.type(screen.getByLabelText("Ulangi kata sandi"), confirm);
+  await userEvent.click(screen.getByRole("button", { name: "Daftar" }));
+};
+
+beforeEach(() => vi.clearAllMocks());
 
 describe("RegisterPage", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("memvalidasi input", async () => {
-    renderWithProviders(ui(), { route: "/auth/register" });
-    expect(document.title).toBe("Daftar | Lost & Founds");
-    await userEvent.type(screen.getByLabelText("Kata sandi"), "123");
-    await userEvent.click(screen.getByRole("button", { name: "Daftar" }));
-    expect(screen.getByText("Nama wajib diisi")).toBeInTheDocument();
-    expect(screen.getByText("Email wajib diisi")).toBeInTheDocument();
+  it("menolak input tidak valid", async () => {
+    renderWithProviders(tree, { route: "/auth/register" });
+    await fill("ab", "x", "123", "321");
+    expect(screen.getByText("Nama minimal 3 karakter")).toBeInTheDocument();
+    expect(screen.getByText("Format email tidak valid")).toBeInTheDocument();
     expect(screen.getByText("Kata sandi minimal 6 karakter")).toBeInTheDocument();
+    expect(screen.getByText("Konfirmasi kata sandi tidak sama")).toBeInTheDocument();
     expect(postRegister).not.toHaveBeenCalled();
   });
 
-  it("registrasi berhasil mengarahkan ke login", async () => {
-    postRegister.mockResolvedValue({ status: "success" });
-    renderWithProviders(ui(), { route: "/auth/register" });
-    await userEvent.type(screen.getByLabelText("Nama lengkap"), " Budi ");
-    await userEvent.type(screen.getByLabelText("Email"), "b@b.c");
-    await userEvent.type(screen.getByLabelText("Kata sandi"), "123456");
-    await userEvent.click(screen.getByRole("button", { name: "Daftar" }));
+  it("daftar berhasil lalu pindah ke halaman login", async () => {
+    postRegister.mockResolvedValue({});
+    const { store } = renderWithProviders(tree, { route: "/auth/register" });
+    await fill("Budi", "budi@del.ac.id", "rahasia1", "rahasia1");
     expect(await screen.findByText("Halaman login")).toBeInTheDocument();
-    expect(postRegister).toHaveBeenCalledWith({ name: "Budi", email: "b@b.c", password: "123456" });
+    expect(postRegister).toHaveBeenCalledWith({ name: "Budi", email: "budi@del.ac.id", password: "rahasia1" });
+    expect(store.getState().auth.registered).toBe(true);
   });
 
-  it("registrasi gagal tetap di halaman", async () => {
-    postRegister.mockResolvedValue({ status: "fail", message: "Email dipakai" });
-    renderWithProviders(ui(), { route: "/auth/register" });
-    await userEvent.type(screen.getByLabelText("Nama lengkap"), "Budi");
-    await userEvent.type(screen.getByLabelText("Email"), "b@b.c");
-    await userEvent.type(screen.getByLabelText("Kata sandi"), "123456");
-    await userEvent.click(screen.getByRole("button", { name: "Daftar" }));
+  it("tetap di halaman daftar saat API gagal", async () => {
+    postRegister.mockRejectedValue(new Error("Email sudah terdaftar"));
+    renderWithProviders(tree, { route: "/auth/register" });
+    await fill("Budi", "budi@del.ac.id", "rahasia1", "rahasia1");
     await waitFor(() => expect(postRegister).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByRole("button", { name: "Daftar" })).toBeEnabled());
-    expect(screen.queryByText("Halaman login")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Buat akun" })).toBeInTheDocument();
   });
 });
