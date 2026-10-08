@@ -4,7 +4,6 @@ import { IconLoader2, IconPhoto } from "@tabler/icons-react";
 import ModalShell from "../../../components/ModalShell";
 import { resolveMediaUrl, showWarningDialog } from "../../../helpers/toolsHelper";
 import { asyncChangeLostFoundCover } from "../states/action";
-import PropTypes from "prop-types";
 
 export default function ChangeCoverModal({ item, onClose, onSaved }) {
   const dispatch = useDispatch();
@@ -72,9 +71,3 @@ export default function ChangeCoverModal({ item, onClose, onSaved }) {
     </ModalShell>
   );
 }
-
-ChangeCoverModal.propTypes = {
-  item: PropTypes.shape({id:PropTypes.oneOfType([PropTypes.number,PropTypes.string]),cover:PropTypes.string}),
-  onClose: PropTypes.func,
-  onSaved: PropTypes.func,
-};

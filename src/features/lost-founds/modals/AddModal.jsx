@@ -2,7 +2,6 @@ import { useDispatch, useSelector } from "react-redux";
 import ModalShell from "../../../components/ModalShell";
 import ReportForm from "../components/ReportForm";
 import { asyncAddLostFound } from "../states/action";
-import PropTypes from "prop-types";
 
 export default function AddModal({ onClose, onSaved }) {
   const dispatch = useDispatch();
@@ -21,8 +20,3 @@ export default function AddModal({ onClose, onSaved }) {
     </ModalShell>
   );
 }
-
-AddModal.propTypes = {
-  onClose: PropTypes.func,
-  onSaved: PropTypes.func,
-};

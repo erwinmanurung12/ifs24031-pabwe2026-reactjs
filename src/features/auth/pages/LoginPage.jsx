@@ -5,7 +5,7 @@ import { IconEye, IconEyeOff, IconLoader2 } from "@tabler/icons-react";
 import useInput from "../../../hooks/useInput";
 import { asyncLogin } from "../states/action";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
   const dispatch = useDispatch();

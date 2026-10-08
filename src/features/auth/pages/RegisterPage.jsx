@@ -4,9 +4,8 @@ import { useDispatch } from "react-redux";
 import { IconLoader2 } from "@tabler/icons-react";
 import useInput from "../../../hooks/useInput";
 import { asyncRegister } from "../states/action";
-import PropTypes from "prop-types";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const FIELD_CLASS =
   "w-full rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100";
@@ -81,9 +80,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-Field.propTypes = {
-  id: PropTypes.string,
-  label: PropTypes.string,
-  error: PropTypes.string,
-};

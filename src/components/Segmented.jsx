@@ -1,5 +1,4 @@
 import clsx from "clsx";
-import PropTypes from "prop-types";
 
 // Kontrol pilihan tunggal berbentuk pil. options: [[id, label], ...]
 export default function Segmented({ label, value, options, onChange }) {
@@ -26,10 +25,3 @@ export default function Segmented({ label, value, options, onChange }) {
     </div>
   );
 }
-
-Segmented.propTypes = {
-  label: PropTypes.string,
-  value: PropTypes.string,
-  options: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)),
-  onChange: PropTypes.func,
-};

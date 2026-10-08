@@ -9,7 +9,6 @@ import ItemCard from "../components/ItemCard";
 import StatsPanel from "../components/StatsPanel";
 import AddModal from "../modals/AddModal";
 import { asyncChangeLostFound, asyncDeleteLostFound, asyncGetLostFounds } from "../states/action";
-import PropTypes from "prop-types";
 
 const STATUS_OPTIONS = [["all", "Semua"], ["lost", "Hilang"], ["found", "Ditemukan"]];
 const PROGRESS_OPTIONS = [["all", "Semua"], ["open", "Berjalan"], ["done", "Selesai"]];
@@ -144,9 +143,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-StatTile.propTypes = {
-  label: PropTypes.string,
-  value: PropTypes.oneOfType([PropTypes.number,PropTypes.string]),
-  tone: PropTypes.string,
-};

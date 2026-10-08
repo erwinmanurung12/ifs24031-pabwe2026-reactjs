@@ -2,7 +2,6 @@ import clsx from "clsx";
 import { Link } from "react-router-dom";
 import { IconCalendar, IconCircleCheck, IconPackage, IconRotate2, IconTrash } from "@tabler/icons-react";
 import { formatDate, isDone, resolveMediaUrl } from "../../../helpers/toolsHelper";
-import PropTypes from "prop-types";
 
 export const StatusPill = ({ status }) => (
   <span
@@ -74,13 +73,3 @@ export default function ItemCard({ item, onToggleDone, onDelete }) {
     </article>
   );
 }
-
-StatusPill.propTypes = {
-  status: PropTypes.string,
-};
-
-ItemCard.propTypes = {
-  item: PropTypes.shape({id:PropTypes.oneOfType([PropTypes.number,PropTypes.string]),title:PropTypes.string,description:PropTypes.string,status:PropTypes.string,cover:PropTypes.string,created_at:PropTypes.string}),
-  onToggleDone: PropTypes.func,
-  onDelete: PropTypes.func,
-};

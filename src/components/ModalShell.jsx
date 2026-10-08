@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { IconX } from "@tabler/icons-react";
-import PropTypes from "prop-types";
 
 // Kerangka dialog: backdrop klik-untuk-tutup, tombol Esc, dan header judul.
 export default function ModalShell({ title, subtitle, onClose, children }) {
@@ -46,10 +45,3 @@ export default function ModalShell({ title, subtitle, onClose, children }) {
     </div>
   );
 }
-
-ModalShell.propTypes = {
-  title: PropTypes.string,
-  subtitle: PropTypes.string,
-  onClose: PropTypes.func,
-  children: PropTypes.node,
-};

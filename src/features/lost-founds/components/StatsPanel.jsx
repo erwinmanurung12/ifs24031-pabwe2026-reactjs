@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toSeries } from "../../../helpers/toolsHelper";
 import { asyncGetLostFoundStats } from "../states/action";
-import PropTypes from "prop-types";
 
 function BarList({ title, rows }) {
   const peak = Math.max(1, ...rows.map((row) => row.value));
@@ -48,8 +47,3 @@ export default function StatsPanel() {
     </div>
   );
 }
-
-BarList.propTypes = {
-  title: PropTypes.string,
-  rows: PropTypes.arrayOf(PropTypes.shape({label:PropTypes.string,value:PropTypes.number})),
-};

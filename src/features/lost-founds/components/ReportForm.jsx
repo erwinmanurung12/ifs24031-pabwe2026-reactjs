@@ -2,7 +2,6 @@ import { useState } from "react";
 import clsx from "clsx";
 import { IconLoader2 } from "@tabler/icons-react";
 import useInput from "../../../hooks/useInput";
-import PropTypes from "prop-types";
 
 const BLANK = { title: "", description: "", status: "lost", completed: false };
 const KINDS = [
@@ -105,11 +104,3 @@ export default function ReportForm({ initial = BLANK, withCompleted = false, bus
     </form>
   );
 }
-
-ReportForm.propTypes = {
-  initial: PropTypes.shape({title:PropTypes.string,description:PropTypes.string,status:PropTypes.string,completed:PropTypes.bool}),
-  withCompleted: PropTypes.bool,
-  busy: PropTypes.bool,
-  submitLabel: PropTypes.string,
-  onSubmit: PropTypes.func,
-};
