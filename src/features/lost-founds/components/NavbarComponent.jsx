@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { IconChevronDown, IconLogout, IconMenu2, IconUser } from "@tabler/icons-react";
 import Avatar from "../../../components/Avatar";
 import { asyncLogout } from "../../auth/states/action";
+import PropTypes from "prop-types";
 
 export default function NavbarComponent({ onOpenMenu }) {
   const dispatch = useDispatch();
@@ -86,3 +87,7 @@ export default function NavbarComponent({ onOpenMenu }) {
     </header>
   );
 }
+
+NavbarComponent.propTypes = {
+  onOpenMenu: PropTypes.func,
+};

@@ -3,6 +3,7 @@ import ModalShell from "../../../components/ModalShell";
 import ReportForm from "../components/ReportForm";
 import { isDone } from "../../../helpers/toolsHelper";
 import { asyncChangeLostFound } from "../states/action";
+import PropTypes from "prop-types";
 
 export default function ChangeModal({ item, onClose, onSaved }) {
   const dispatch = useDispatch();
@@ -27,3 +28,9 @@ export default function ChangeModal({ item, onClose, onSaved }) {
     </ModalShell>
   );
 }
+
+ChangeModal.propTypes = {
+  item: PropTypes.shape({id:PropTypes.oneOfType([PropTypes.number,PropTypes.string]),title:PropTypes.string,description:PropTypes.string,status:PropTypes.string}),
+  onClose: PropTypes.func,
+  onSaved: PropTypes.func,
+};

@@ -8,6 +8,7 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react";
+import PropTypes from "prop-types";
 
 const MENU = [
   { id: "reports", to: "/", label: "Laporan", icon: IconLayoutDashboard },
@@ -89,3 +90,8 @@ export default function SidebarComponent({ open, onClose }) {
     </>
   );
 }
+
+SidebarComponent.propTypes = {
+  open: PropTypes.bool,
+  onClose: PropTypes.func,
+};

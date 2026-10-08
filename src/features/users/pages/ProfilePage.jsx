@@ -8,6 +8,7 @@ import {
   asyncChangeProfilePassword,
   asyncChangeProfilePhoto,
 } from "../states/action";
+import PropTypes from "prop-types";
 
 const FIELD =
   "w-full rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100";
@@ -136,3 +137,19 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+Card.propTypes = {
+  title: PropTypes.string,
+  children: PropTypes.node,
+};
+
+Field.propTypes = {
+  id: PropTypes.string,
+  label: PropTypes.string,
+  error: PropTypes.string,
+};
+
+SubmitButton.propTypes = {
+  busy: PropTypes.bool,
+  children: PropTypes.node,
+};
